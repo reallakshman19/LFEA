@@ -132,6 +132,7 @@ function supportPublicationPanel(doc, state) {
     ['Support authority', state.authorityCurrentness ?? 'NONE'],
     ['Support publication', state.publicationCurrentness ?? 'NONE'],
     ['Support authority identity', state.authority?.semanticHash ?? null],
+    ['Support basis', supportBasisLabel(state)],
   ]));
   if (state.publicationCurrentness !== 'CURRENT' || !state.publications) {
     if (state.publicationStaleReasonCodes?.length) {
@@ -143,6 +144,14 @@ function supportPublicationPanel(doc, state) {
     section.append(supportCaseTable(doc, row.publication));
   }
   return section;
+}
+
+function supportBasisLabel(state) {
+  const reviewer = state.authorization?.reviewerIdentity ?? null;
+  if (!reviewer) return null;
+  return reviewer.startsWith('NOT ENGINEER-REVIEWED')
+    ? 'DERIVED from the model restraints used by the solve (up = opposite of gravity, global X/Y/Z axes). NOT ENGINEER-REVIEWED.'
+    : `Reviewed by ${reviewer}`;
 }
 
 function supportCaseTable(doc, publication) {

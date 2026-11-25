@@ -14,6 +14,7 @@ import { createLfeaNativeResultsAuthority } from './native-results-authority.js'
 import { mountLfeaNativeResultsCompositeView } from './native-results-composite-view.js';
 import { createLfeaNativeRunHistory } from './native-run-history.js';
 import { createLfeaNativeSupportPublicationAuthority } from './native-support-publication-authority.js';
+import { publishLfeaDerivedSupportActions } from './derived-support-authority.js';
 import { createLfeaNativeVerificationController } from './native-verification-controller.js';
 import { buildLfeaStandalonePublicApi } from './standalone-runtime-api.js';
 import { lfeaStandaloneJourneyStatus } from './standalone-status.js';
@@ -155,11 +156,10 @@ class LfeaStandaloneRuntime {
     return this.runHistory.getSnapshot({ sourceSnapshot, preFlight,
       executionState: this.executionAuthority.getState(), resultsState: this.resultsAuthority.getState() });
   }
-  #archiveCurrentRun() {
-    return this.runHistory.archive({
-      applicationIdentity: this.identity, sourceSnapshot: this.sourceController.getSnapshot(),
-      preFlight: this.sourceController.getPreFlight(), executionState: this.executionAuthority.getState(),
-      resultsState: this.resultsAuthority.getState() });
+  #archiveCurrentRun() { // then derived, labelled support actions; they never block Results
+    const run = this.runHistory.archive({ applicationIdentity: this.identity, ...this.#historyContext() });
+    publishLfeaDerivedSupportActions(this);
+    return run;
   }
   #engineeringStateSet() {
     return Object.freeze({

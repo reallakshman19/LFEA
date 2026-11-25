@@ -117,6 +117,7 @@
     "scripts/lfea-cnode-spring-assembly-check.mjs",
     "scripts/lfea-cnode-spring-check.mjs",
     "scripts/lfea-collinear-backtrack-rule-check.mjs",
+    "scripts/lfea-derived-support-publication-check.mjs",
     "scripts/lfea-equilibrium-absolute-companion-check.mjs",
     "scripts/lfea-hanger-case-selection-check.mjs",
     "scripts/lfea-hanger-predefined-check.mjs",

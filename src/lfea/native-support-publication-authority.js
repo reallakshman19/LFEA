@@ -26,7 +26,9 @@ const REVIEW_REQUIRED = 'REVIEW_REQUIRED';
 
 /**
  * Own staged/reviewed support authority and current-only support publication.
- * Support semantics never come from InputXML restraint rows by inference.
+ * Support semantics never come from InputXML restraint rows by inference here;
+ * the practical-run deriver (derived-support-authority.js) supplies them
+ * explicitly, labelled, from the compiled solver constraints.
  */
 export function createLfeaNativeSupportPublicationAuthority() {
   let state = emptyState();
