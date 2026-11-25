@@ -1,5 +1,5 @@
 {
-  "description": "Checks that pass on a clean LFEA checkout. Known failures (also failing in unmodified AA3) are listed in EXTRACTION_REPORT.md and are excluded until fixed.",
+  "description": "Checks that pass on a clean checkout without a prior build. scripts/lfea-standalone-build-artifact-check.mjs runs after the build step instead. Known failures (also failing in unmodified AA3) are listed in EXTRACTION_REPORT.md.",
   "checks": [
     "scripts/accdb-panel-view-model-check.mjs",
     "scripts/accdb-source-binding-check.mjs",
@@ -189,7 +189,6 @@
     "scripts/lfea-spring-rate-units-check.mjs",
     "scripts/lfea-spring-restraint-check.mjs",
     "scripts/lfea-standalone-boundary-check.mjs",
-    "scripts/lfea-standalone-build-artifact-check.mjs",
     "scripts/lfea-standalone-e2e-source-check.mjs",
     "scripts/lfea-standalone-governed-journey-check.mjs",
     "scripts/lfea-standalone-main-sync-check.mjs",

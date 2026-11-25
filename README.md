@@ -55,7 +55,7 @@ check-by-check comparison against unmodified AA3.
 ## Checks and CI
 
 ```bash
-npm run check:ci          # the 257 checks that pass on a clean checkout
+npm run check:ci          # 255 checks that pass on a clean checkout (no build needed)
 npm run check:ci-browser  # the one check that launches Chromium
 npm run lint
 npx playwright test e2e/lfea-standalone.spec.js
