@@ -24,6 +24,7 @@ instead:
 | `BRANCH_FACTOR_EDITION_AUTHORITY_UNRESOLVED`: welding tees refused without an explicitly chosen B31/B31J edition. Bends also fell back to straight chords. | Default basis: ASME B31.3 2022 + B31J 2017, no smooth-90° correction. The sealed authority uses `sourceId: LFEA_DEFAULT_ASSUMED_BASIS`, and the control on the Source tab changes it. | "ASSUMED (default): … Choose below to change." |
 | Pre-flight `WARN` required a reviewer name and reason before Run | Sealed automatically through the same governed path. The approver is recorded as `NOT ENGINEER-REVIEWED (LFEA auto-accept)`; the reason lists the warning count. | Status line and basis line: "results are NOT ENGINEER-REVIEWED" |
 | Support loads: `GOVERNED_INTERFACE_SET_REQUIRED`, `EXPLICIT_UP_GLOBAL_REQUIRED`, `EXPLICIT_PARALLEL_TOLERANCE_REQUIRED` | Every Run derives one support per restrained node from the constraints the solve actually used (`src/lfea/derived-support-authority.js`). Up is the opposite of solve gravity (+Y), the axes are global X/Y/Z, and the parallel tolerance is 1e-6. It is staged, accepted as `NOT ENGINEER-REVIEWED (LFEA derived supports)` and published through the same governed chain, with `sourceId: LFEA_DERIVED_FROM_MODEL_RESTRAINTS`. If derivation fails, Results are unaffected. | Results, support panel, "Support basis": "DERIVED from the model restraints used by the solve … NOT ENGINEER-REVIEWED." |
+| B31 code check: `GOVERNED_CODE_PROFILE_REQUIRED`, `GOVERNED_EDITION_DATASET_REQUIRED` (pasted sealed JSON) | The Code tab takes two numbers, Sc and Sh in MPa, and **Run B31.3 code check** builds everything else (`src/lfea/practical-b31-check.js`). That means one SUSTAINED check per straight-pipe element end in each run weight case, unity stress factors on straight pipe, W = 1, Sc at 70 °F and Sh at the material's design temperature. It is staged, accepted as `NOT ENGINEER-REVIEWED (LFEA user allowables)` and published through the governed chain. Later Runs repeat it with the same values. | Results, B31 panel, "Code check basis": "Allowables entered by user (Sc=…;Sh=…) … NOT ENGINEER-REVIEWED." |
 
 Every assumed value stays in the sealed records (authority IDs, source IDs,
 approver identity), so dossiers, history and exports show exactly what was
@@ -33,7 +34,6 @@ assumed. Nothing is hidden.
 
 | Gate | Planned default basis |
 |---|---|
-| B31 code check: `GOVERNED_CODE_PROFILE_REQUIRED`, `GOVERNED_EDITION_DATASET_REQUIRED` | Use the allowables carried in the model (CAESAR `ALLOWBL` block) with the chosen or assumed edition; label "allowables from source model". |
 | Strict profile refusals (bends as chords, friction, unilateral supports) | Keep running under the approximation profile, listing each approximation on the results. |
 
 ## Evidence
@@ -49,6 +49,21 @@ BM4 (97 nodes), real CAESAR II model:
 
 Support loads: BM4 derives and resolves all 30 supports, and BM1 all 10.
 `scripts/lfea-derived-support-publication-check.mjs` checks this.
+
+B31 code check: BM4 publishes 116 sustained checks and BM1 publishes 18.
+`scripts/lfea-practical-b31-check.mjs` checks this. Why the allowables
+are typed in: BM1 and BM4 leave every `ALLOWABLESTRESS` value at CAESAR's
+"not set" sentinel (-1.0101), and ASME tables are licensed, so LFEA ships
+none.
+
+Known B31 limits, all stated in the status line:
+
+- If a case's pressure loads also authorize axial-thrust or Bourdon code
+  terms (not implemented), the pressure cases are skipped and only the
+  weight case is checked.
+- Each check set covers one material, the one with the most elements.
+- Bends and tees are not checked yet. The native boundary covers straight
+  pipe only.
 
 Known limit: derived supports mirror the solver's linear constraints. A
 CAESAR "+Y" (one-way) support is therefore reported as two-way, and can show

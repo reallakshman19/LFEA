@@ -14,7 +14,7 @@ import { createLfeaNativeResultsAuthority } from './native-results-authority.js'
 import { mountLfeaNativeResultsCompositeView } from './native-results-composite-view.js';
 import { createLfeaNativeRunHistory } from './native-run-history.js';
 import { createLfeaNativeSupportPublicationAuthority } from './native-support-publication-authority.js';
-import { publishLfeaDerivedSupportActions } from './derived-support-authority.js';
+import { publishLfeaPracticalExtras, runLfeaPracticalB31Check } from './practical-run.js';
 import { createLfeaNativeVerificationController } from './native-verification-controller.js';
 import { buildLfeaStandalonePublicApi } from './standalone-runtime-api.js';
 import { lfeaStandaloneJourneyStatus } from './standalone-status.js';
@@ -67,7 +67,7 @@ class LfeaStandaloneRuntime {
       { onApplyCaseSelection: (caseIds) => this.sourceController.setRequestedCaseIds(caseIds) });
     this.b31AuthoringView = mountLfeaNativeB31AuthoringView(this.layout.codeRoot, {
       onStage: (input) => this.stageNativeB31Authority(input), onAuthorize: (approval) => this.authorizeNativeB31Authority(approval),
-      onPublish: () => this.publishNativeB31Application(),
+      onPublish: () => this.publishNativeB31Application(), onQuickRun: (allowables) => runLfeaPracticalB31Check(this, allowables),
     });
   }
   #createControllers(workbenchOptions) {
@@ -158,7 +158,7 @@ class LfeaStandaloneRuntime {
   }
   #archiveCurrentRun() { // then derived, labelled support actions; they never block Results
     const run = this.runHistory.archive({ applicationIdentity: this.identity, ...this.#historyContext() });
-    publishLfeaDerivedSupportActions(this);
+    publishLfeaPracticalExtras(this);
     return run;
   }
   #engineeringStateSet() {

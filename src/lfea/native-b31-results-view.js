@@ -12,6 +12,7 @@ export function nativeB31ResultsPanel(doc, state) {
     ['B31 authority identity', state?.authority?.semanticHash ?? null],
     ['B31 review identity', state?.authorization?.semanticHash ?? null],
     ['Code profile identity', state?.authority?.codeProfile?.semanticHash ?? null],
+    ['Code check basis', b31BasisLabel(state)],
     ['Edition dataset identity', state?.authority?.editionDataset?.semanticHash ?? null],
   ]));
   if (state?.publicationCurrentness !== 'CURRENT' || !state.application) {
@@ -113,4 +114,12 @@ function codes(doc, label, values) {
 }
 function display(value) {
   return value === null || value === undefined || value === '' ? '—' : String(value);
+}
+
+function b31BasisLabel(state) {
+  const reviewer = state?.authorization?.reviewerIdentity ?? null;
+  if (!reviewer) return null;
+  if (!reviewer.startsWith('NOT ENGINEER-REVIEWED')) return `Reviewed by ${reviewer}`;
+  const source = state.authority?.editionDataset?.sourceIdentity?.sourceRevision ?? '';
+  return `Allowables entered by user (${source}); W = 1; unity stress factors on straight pipe. NOT ENGINEER-REVIEWED.`;
 }

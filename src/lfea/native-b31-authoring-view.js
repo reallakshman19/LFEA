@@ -9,7 +9,7 @@ import { buildB31SustainedCheck, listB31SustainedCandidates } from './native-b31
  * is the only source of geometry), then stage/authorize/publish through the
  * existing governed chain.
  */
-export function mountLfeaNativeB31AuthoringView(root, { onStage, onAuthorize, onPublish } = {}) {
+export function mountLfeaNativeB31AuthoringView(root, { onStage, onAuthorize, onPublish, onQuickRun } = {}) {
   if (!root?.ownerDocument) throw new TypeError('Native B31 authoring root is required.');
   const doc = root.ownerDocument;
   let selected = new Set();
@@ -19,21 +19,70 @@ export function mountLfeaNativeB31AuthoringView(root, { onStage, onAuthorize, on
   let statusIsError = false;
   let lastPreFlight = null;
   let lastB31State = null;
+  let scText = '';
+  let shText = '';
 
   function update(preFlight, b31State) {
     lastPreFlight = preFlight;
     lastB31State = b31State;
     const section = doc.createElement('section');
     section.className = 'lfea-b31-authoring';
-    section.append(heading(doc, 'B31.3 SUSTAINED code-check authoring'));
-    section.append(paragraph(doc,
-      'Select real straight-pipe element/end/case combinations from the current model, supply a caller-authorized ASME B31.3 code profile and edition dataset, then stage, review, and publish the code check.'));
+    section.append(heading(doc, 'B31.3 SUSTAINED code check'));
     if (statusMessage) section.append(statusBanner(doc, statusMessage, statusIsError));
-    section.append(codeAuthorityInputs(doc));
-    section.append(candidateTable(doc, preFlight));
-    section.append(stageButton(doc, preFlight));
-    section.append(authorityPanel(doc, b31State));
+    section.append(quickRunControls(doc));
+    const advanced = doc.createElement('details');
+    advanced.dataset.role = 'lfea-b31-advanced';
+    const summary = doc.createElement('summary');
+    summary.textContent = 'Advanced: sealed code profile / edition dataset and hand-picked checks';
+    advanced.append(summary);
+    section.append(advanced);
+    advanced.append(paragraph(doc,
+      'Select real straight-pipe element/end/case combinations from the current model, supply a caller-authorized ASME B31.3 code profile and edition dataset, then stage, review, and publish the code check.'));
+    advanced.append(codeAuthorityInputs(doc));
+    advanced.append(candidateTable(doc, preFlight));
+    advanced.append(stageButton(doc, preFlight));
+    advanced.append(authorityPanel(doc, b31State));
     root.replaceChildren(section);
+  }
+
+  function quickRunControls(document_) {
+    const wrap = document_.createElement('div');
+    wrap.className = 'lfea-b31-quick-run';
+    wrap.dataset.role = 'lfea-b31-quick-run';
+    wrap.append(paragraph(document_,
+      'Enter the allowable stresses for the pipe material and run. Every straight-pipe element end in the weight cases is checked, using unity stress factors and W = 1. '
+      + 'LFEA does not supply ASME allowables (they are licensed), and CAESAR models usually leave them unset. Results are labelled "allowables entered by user" and NOT ENGINEER-REVIEWED. '
+      + 'After each Run the check repeats with the same values.'));
+    const field = (role, label, value, onInput) => {
+      const node = document_.createElement('label');
+      node.textContent = `${label} `;
+      const input = document_.createElement('input');
+      input.type = 'number'; input.min = '0'; input.step = 'any'; input.value = value;
+      input.dataset.role = role;
+      input.addEventListener('input', () => onInput(input.value));
+      node.append(input);
+      return node;
+    };
+    const button = document_.createElement('button');
+    button.type = 'button';
+    button.dataset.role = 'lfea-b31-quick-run-button';
+    button.textContent = 'Run B31.3 code check';
+    button.addEventListener('click', () => {
+      try {
+        statusMessage = onQuickRun?.({ scMpa: scText, shMpa: shText }) ?? 'Code check requested.';
+        statusIsError = false;
+      } catch (error) {
+        statusMessage = error?.message ?? String(error);
+        statusIsError = true;
+      }
+      update(lastPreFlight, lastB31State);
+    });
+    wrap.append(
+      field('lfea-b31-sc-input', 'Sc, cold allowable [MPa]', scText, (value) => { scText = value; }), ' ',
+      field('lfea-b31-sh-input', 'Sh, hot allowable [MPa]', shText, (value) => { shText = value; }), ' ',
+      button,
+    );
+    return wrap;
   }
 
   function codeAuthorityInputs(document_) {
