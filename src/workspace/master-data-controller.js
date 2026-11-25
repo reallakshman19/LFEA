@@ -253,7 +253,7 @@ export class MasterDataController {
     if (this.masterData.pipingClass.rawRows.length > 0) return; // already populated
     try {
       // Resolve the public-dir URL relative to the Vite base path.
-      // import.meta.env.BASE_URL is '/Advanced_Analysis/' in production and '/' in dev.
+      // import.meta.env.BASE_URL is '/LFEA/' in production and '/' in dev.
       const base = (import.meta.env?.BASE_URL ?? '/').replace(/\/$/, '');
       const url = `${base}/master-data/${PIPING_CLASS_MASTER_DESCRIPTOR.publicPath.replace(/^master-data\//, '')}`;
       const response = await fetch(url);

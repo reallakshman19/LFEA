@@ -7,7 +7,7 @@ import { chromium } from 'playwright';
 const host = '127.0.0.1';
 const port = 4187;
 const baseUrl = `http://${host}:${port}`;
-const demoUrl = `${baseUrl}/Advanced_Analysis/demo-only/lfea-phase6h/`;
+const demoUrl = `${baseUrl}/LFEA/demo-only/lfea-phase6h/`;
 const server = spawn(
   process.execPath,
   ['node_modules/vite/bin/vite.js', 'preview', '--host', host, '--port', String(port)],

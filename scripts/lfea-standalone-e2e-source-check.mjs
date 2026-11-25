@@ -8,10 +8,10 @@ const runner = fs.readFileSync('scripts/run-lfea-standalone-e2e.mjs', 'utf8');
 const vite = fs.readFileSync('vite.config.js', 'utf8');
 const lfeaVite = fs.readFileSync('vite.lfea.config.js', 'utf8');
 
-assert.match(spec, /const LFEA_URL = '\/Advanced_Analysis\/lfea\.html'/u);
+assert.match(spec, /const LFEA_URL = '\/LFEA\/lfea\.html'/u);
 assert.match(spec, /page\.goto\(LFEA_URL\)/u);
-assert.match(vite, /base: '\/Advanced_Analysis\/'/u);
-assert.match(lfeaVite, /base: '\/Advanced_Analysis\/'/u);
+assert.match(vite, /base: '\/LFEA\/'/u);
+assert.match(lfeaVite, /base: '\/LFEA\/'/u);
 assert.match(spec, /lafea-consumer-root/u);
 assert.match(spec, /lfea-consumer-root/u);
 assert.match(spec, /Run native analysis/u);
@@ -39,7 +39,7 @@ for (const [name, source] of [['spec', spec], ['fixture', fixture]]) {
 console.log(JSON.stringify({
   check: 'lfea-standalone-e2e-source',
   status: 'PASS',
-  deployedPublicBase: '/Advanced_Analysis/',
+  deployedPublicBase: '/LFEA/',
   standaloneEntry: true,
   publicUiOnly: true,
   workflowChangesRequired: false,

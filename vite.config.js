@@ -44,7 +44,7 @@ export function manualChunk(id) {
 }
 
 export default defineConfig({
-  base: '/Advanced_Analysis/',
+  base: '/LFEA/',
   plugins: [],
   define: {
     __BUILD_TIME__: JSON.stringify(buildTime),
@@ -66,7 +66,7 @@ export default defineConfig({
     },
   },
   server: {
-    open: '/Advanced_Analysis/lfea.html',
+    open: '/LFEA/lfea.html',
     watch: {
       ignored: ['**/benchmarks/**', '**/reports/**', '**/playwright-report/**'],
     },

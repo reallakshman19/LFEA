@@ -5,7 +5,7 @@ import {
   lfeaStandaloneMalformedInputXml,
 } from './fixtures/lfea-standalone-inputxml-fixtures.js';
 
-const LFEA_URL = '/Advanced_Analysis/lfea.html';
+const LFEA_URL = '/LFEA/lfea.html';
 const STATUS = '[data-role="lfea-standalone-status"]';
 const SOURCE_INPUT = 'section[data-view-id="source"] input[type="file"]';
 const view = (id) => `section[data-view-id="${id}"]`;

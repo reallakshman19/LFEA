@@ -1,0 +1,8 @@
+# Keep LF in the working tree on every platform: several checks hash or
+# regex-match source text, and CRLF checkouts would change their results.
+* text=auto eol=lf
+*.ACCDB binary
+*.accdb binary
+*.png binary
+*.pptx binary
+*.pdf binary

@@ -10,7 +10,7 @@ etc.) are left out.
 
 ```bash
 npm install
-npm run dev        # opens /Advanced_Analysis/lfea.html
+npm run dev        # opens /LFEA/lfea.html
 npm run build      # boundary check + production build -> dist-lfea/
 npm run preview
 ```
@@ -46,9 +46,8 @@ check-by-check comparison against unmodified AA3.
 
 ## Notes
 
-- The Vite `base` is still `/Advanced_Analysis/`, because the e2e spec and
-  several evidence/governance checks expect it. Change `base` in
-  `vite.config.js` together with `e2e/lfea-standalone.spec.js` if you deploy
-  under a different path.
+- The app is served under `/LFEA/` (`vite.config.js` `base`); `/LFEA/` redirects to
+  `/LFEA/lfea.html`. Evidence/governance records still name their origin
+  repository `reallaksh19/Advanced_Analysis` on purpose — that is provenance, not config.
 - Some checks assert wiring inside AA3's combined app (`src/main.js`,
   `workspace-layout.js`) and cannot pass here. See `EXTRACTION_REPORT.md`.

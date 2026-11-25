@@ -7,5 +7,5 @@ export { manualChunk };
 
 export default defineConfig({
   ...baseConfig,
-  base: '/Advanced_Analysis/',
+  base: '/LFEA/',
 });

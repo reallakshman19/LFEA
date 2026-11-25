@@ -29,7 +29,7 @@ export default defineConfig({
   webServer: {
     command: `npm run dev -- --port ${serverPort}`,
     // Readiness probe must hit a real page: `/` is 404 under the Vite base path.
-    url: `http://localhost:${serverPort}/Advanced_Analysis/lfea.html`,
+    url: `http://localhost:${serverPort}/LFEA/lfea.html`,
     reuseExistingServer: !process.env.CI,
   },
 });
