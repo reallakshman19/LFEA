@@ -55,7 +55,10 @@ for (const [caseId, section] of Object.entries(comparison.cases)) {
 const sustained = comparison.cases['IXP-WP'];
 const operating = comparison.cases['IXP-WPT'];
 
-assert.equal(sustained.restraint.unilateralTensionNodes.length, 1, 'BM4 SUS unilateral-tension support count');
+// Re-measured 2026-11-25 with the default B31J component factor basis applied to
+// the welding tees (previously the model never reached a solve): SUS lifts at
+// 20090 and 21470; OPE count unchanged at 4.
+assert.equal(sustained.restraint.unilateralTensionNodes.length, 2, 'BM4 SUS unilateral-tension support count');
 assert.equal(sustained.restraint.unilateralTensionNodes[0].nodeId, '20090');
 assert.equal(operating.restraint.unilateralTensionNodes.length, 4, 'BM4 OPE unilateral-tension support count');
 for (const row of operating.restraint.unilateralTensionNodes) {
@@ -82,7 +85,10 @@ assert.ok(operatingWithin >= 15, `BM4 OPE: only ${operatingWithin}/30 restraints
 // open gaps -- is worst.
 const sustainedRatio = sustained.displacement.totalAbsoluteTranslation.ratio;
 const operatingRatio = operating.displacement.totalAbsoluteTranslation.ratio;
-assert.ok(sustainedRatio > 0.30 && sustainedRatio < 0.40, `BM4 SUS displacement ratio ${sustainedRatio.toFixed(4)} moved outside its recorded band`);
+// Re-measured 2026-11-25: with the default B31J tee basis and current
+// unilateral handling the sustained total displacement is 1.0013 x CAESAR
+// (previously 0.30-0.40, too stiff). Band records the new measurement.
+assert.ok(sustainedRatio > 0.97 && sustainedRatio < 1.03, `BM4 SUS displacement ratio ${sustainedRatio.toFixed(4)} moved outside its recorded band`);
 assert.ok(operatingRatio > 0.72 && operatingRatio < 0.86, `BM4 OPE displacement ratio ${operatingRatio.toFixed(4)} moved outside its recorded band`);
 
 // ---------------------------------------------------------------------------
@@ -97,11 +103,15 @@ assert.ok(operatingRatio > 0.72 && operatingRatio < 0.86, `BM4 OPE displacement 
 // (6.7e-12) and energy balance (4e-16) all pass, and the total reaction agrees
 // with CAESAR to 1.45%. Asserted as an open finding, NOT worked around: the
 // limit is left exactly where its engineering authority set it.
-assert.equal(sustained.diagnostics.residual.status, 'BLOCK', 'BM4 SUS residual gate');
-assert.equal(sustained.executionStatus, 'BLOCKED');
-assert.ok(sustained.diagnostics.residual.value < 1e-5, 'residual is small in absolute terms despite failing its gate');
-assert.equal(operating.diagnostics.residual.status, 'WARN', 'BM4 OPE residual gate');
-assert.equal(operating.executionStatus, 'CONDITIONAL');
+// Re-measured 2026-11-25: the residual-conditioning work upstream resolved
+// this finding. Both cases now pass the unchanged 1e-9 residual gate
+// (SUS 4.3e-13, OPE 4.6e-14) and execute QUALIFIED. Asserted so a regression
+// back to BLOCK/WARN is caught.
+assert.equal(sustained.diagnostics.residual.status, 'PASS', 'BM4 SUS residual gate');
+assert.equal(sustained.executionStatus, 'QUALIFIED');
+assert.ok(sustained.diagnostics.residual.value < 1e-9, 'BM4 SUS residual within its gate');
+assert.equal(operating.diagnostics.residual.status, 'PASS', 'BM4 OPE residual gate');
+assert.equal(operating.executionStatus, 'QUALIFIED');
 
 mkdirSync(fileURLToPath(new URL('../reports', import.meta.url)), { recursive: true });
 writeFileSync(

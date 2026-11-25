@@ -57,29 +57,67 @@ export function setLfeaBendFactorAuthoritySelection(selection, doc) {
   return currentSelection;
 }
 
+/**
+ * Practical-analysis default. When the user has not chosen a component
+ * factor basis, the analysis runs on this declared default instead of
+ * stopping. The sealed authority carries a distinct sourceId so every
+ * downstream record shows the basis was ASSUMED, not chosen, and the UI
+ * labels it. Choosing a basis in the control replaces it.
+ */
+export const LFEA_DEFAULT_COMPONENT_FACTOR_BASIS = Object.freeze({
+  editionProfileId: 'B31_3_2022_B31J_2017',
+  smooth90FlexibilityCorrection: false,
+  sourceId: 'LFEA_DEFAULT_ASSUMED_BASIS',
+});
+
+/** The basis the next pre-flight will use, and whether it was assumed. */
+export function lfeaComponentFactorBasis() {
+  const editionChosen = currentSelection.editionProfileId !== null;
+  const smoothChosen = currentSelection.complete;
+  const editionProfileId = editionChosen
+    ? currentSelection.editionProfileId
+    : LFEA_DEFAULT_COMPONENT_FACTOR_BASIS.editionProfileId;
+  const smooth90FlexibilityCorrection = smoothChosen
+    ? currentSelection.smooth90FlexibilityCorrection
+    : LFEA_DEFAULT_COMPONENT_FACTOR_BASIS.smooth90FlexibilityCorrection;
+  const option = LFEA_BEND_FACTOR_EDITION_OPTIONS.find((entry) => entry.value === editionProfileId);
+  return Object.freeze({
+    editionProfileId,
+    smooth90FlexibilityCorrection,
+    assumed: !smoothChosen,
+    label: `${option?.label ?? editionProfileId}; smooth 90° correction ${smooth90FlexibilityCorrection ? 'applied' : 'not applied'}`,
+  });
+}
+
 export function lfeaBendFactorAuthorityForIntake(intake) {
-  if (!currentSelection.complete) return null;
+  const basis = lfeaComponentFactorBasis();
   const intakeSemanticHash = requireIntakeSemanticHash(intake);
-  const smoothToken = currentSelection.smooth90FlexibilityCorrection ? 'YES' : 'NO';
+  const smoothToken = basis.smooth90FlexibilityCorrection ? 'YES' : 'NO';
   const intakeToken = safeToken(intakeSemanticHash).slice(-20).toUpperCase();
+  const assumedToken = basis.assumed ? 'ASSUMED-' : '';
   return sealInputXmlProductionBendFactorAuthority({
-    authorityId: `LFEA-BEND-FACTOR-${currentSelection.editionProfileId}-SMOOTH90-${smoothToken}-${intakeToken}`,
-    editionProfileId: currentSelection.editionProfileId,
-    smooth90FlexibilityCorrection: currentSelection.smooth90FlexibilityCorrection,
-    sourceId: 'LFEA_UI_EXPLICIT_COMPONENT_FACTOR_SELECTION',
+    authorityId: `LFEA-BEND-FACTOR-${assumedToken}${basis.editionProfileId}-SMOOTH90-${smoothToken}-${intakeToken}`,
+    editionProfileId: basis.editionProfileId,
+    smooth90FlexibilityCorrection: basis.smooth90FlexibilityCorrection,
+    sourceId: basis.assumed
+      ? LFEA_DEFAULT_COMPONENT_FACTOR_BASIS.sourceId
+      : 'LFEA_UI_EXPLICIT_COMPONENT_FACTOR_SELECTION',
     sourceRevision: `INTAKE-${intakeSemanticHash}`,
   });
 }
 
-/** Tee/branch authority needs the explicit edition only; smooth-90 is bend-only. */
+/** Tee/branch authority needs the edition only; smooth-90 is bend-only. */
 export function lfeaBranchFactorAuthorityForIntake(intake) {
-  if (currentSelection.editionProfileId === null) return null;
+  const basis = lfeaComponentFactorBasis();
+  const editionChosen = currentSelection.editionProfileId !== null;
   const intakeSemanticHash = requireIntakeSemanticHash(intake);
   const intakeToken = safeToken(intakeSemanticHash).slice(-20).toUpperCase();
   return sealInputXmlProductionBranchFactorAuthority({
-    authorityId: `LFEA-BRANCH-FACTOR-${currentSelection.editionProfileId}-${intakeToken}`,
-    editionProfileId: currentSelection.editionProfileId,
-    sourceId: 'LFEA_UI_EXPLICIT_COMPONENT_FACTOR_SELECTION',
+    authorityId: `LFEA-BRANCH-FACTOR-${editionChosen ? '' : 'ASSUMED-'}${basis.editionProfileId}-${intakeToken}`,
+    editionProfileId: basis.editionProfileId,
+    sourceId: editionChosen
+      ? 'LFEA_UI_EXPLICIT_COMPONENT_FACTOR_SELECTION'
+      : LFEA_DEFAULT_COMPONENT_FACTOR_BASIS.sourceId,
     sourceRevision: `INTAKE-${intakeSemanticHash}`,
   });
 }

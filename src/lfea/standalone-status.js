@@ -16,6 +16,9 @@ export function lfeaStandaloneJourneyStatus(journey, resultsState, recentSourceM
     return 'Native InputXML pre-FEA is BLOCKED. Review retained findings; no solve authorization exists.';
   }
   if (journey.analysis.readyToRun) {
+    if (journey.review?.approverIdentity === 'NOT ENGINEER-REVIEWED (LFEA auto-accept)') {
+      return `Ready to run. ${journey.review.conditionalFindingCount ?? 0} warning(s) accepted automatically; results will be labelled NOT ENGINEER-REVIEWED.`;
+    }
     return 'Reviewed pre-FEA authorization is sealed. Native raw solve execution is ready.';
   }
   if (journey.review.status === 'REVIEW_REQUIRED') {
