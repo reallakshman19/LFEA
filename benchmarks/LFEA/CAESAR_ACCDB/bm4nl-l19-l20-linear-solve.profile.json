@@ -1,0 +1,252 @@
+{
+  "schema": "caesar-accdb-benchmark-profile/v1",
+  "profileId": "BM4NL-L19-L20-LINEAR-SOLVE-V2",
+  "benchmarkId": "BM4_NL",
+  "installationTemperature": {
+    "value": 21,
+    "unit": "C"
+  },
+  "caseSelection": {
+    "mode": "EXPLICIT",
+    "cases": [
+      {
+        "caseId": "L19",
+        "lcaseNumber": 19
+      },
+      {
+        "caseId": "L20",
+        "lcaseNumber": 20
+      }
+    ]
+  },
+  "nodeSelection": "INPUT_ENDPOINT_NODES",
+  "resultFamilies": [
+    "DISPLACEMENT",
+    "RESTRAINT_REACTION",
+    "GLOBAL_ELEMENT_END_ACTION",
+    "NODAL_EQUILIBRIUM"
+  ],
+  "conventions": {
+    "restraintReaction": "CAESAR_FORCE_ON_SUPPORT"
+  },
+  "equilibriumTolerance": {
+    "forceN": 0.1,
+    "momentNm": 0.1
+  },
+  "tolerances": {
+    "DISPLACEMENT": {
+      "absolute": 0,
+      "relative": 0.1,
+      "scaleFloor": 0,
+      "comparisonMode": "LITERAL_RELATIVE_WITH_ZERO_ABSOLUTE",
+      "zeroReferenceAbsolute": 1e-07
+    },
+    "ROTATION": {
+      "absolute": 0,
+      "relative": 0.1,
+      "scaleFloor": 0,
+      "comparisonMode": "LITERAL_RELATIVE_WITH_ZERO_ABSOLUTE",
+      "zeroReferenceAbsolute": 1e-07
+    },
+    "FORCE": {
+      "absolute": 0,
+      "relative": 0.1,
+      "scaleFloor": 0,
+      "comparisonMode": "LITERAL_RELATIVE_WITH_ZERO_ABSOLUTE",
+      "zeroReferenceAbsolute": 5
+    },
+    "MOMENT": {
+      "absolute": 0,
+      "relative": 0.1,
+      "scaleFloor": 0,
+      "comparisonMode": "LITERAL_RELATIVE_WITH_ZERO_ABSOLUTE",
+      "zeroReferenceAbsolute": 0.5
+    },
+    "GLOBAL_END_FORCE_FROM": {
+      "absolute": 0,
+      "relative": 0.1,
+      "scaleFloor": 0,
+      "comparisonMode": "LITERAL_RELATIVE_WITH_ZERO_ABSOLUTE",
+      "zeroReferenceAbsolute": 5
+    },
+    "GLOBAL_END_FORCE_TO": {
+      "absolute": 0,
+      "relative": 0.1,
+      "scaleFloor": 0,
+      "comparisonMode": "LITERAL_RELATIVE_WITH_ZERO_ABSOLUTE",
+      "zeroReferenceAbsolute": 5
+    },
+    "GLOBAL_END_MOMENT_FROM": {
+      "absolute": 0,
+      "relative": 0.1,
+      "scaleFloor": 0,
+      "comparisonMode": "LITERAL_RELATIVE_WITH_ZERO_ABSOLUTE",
+      "zeroReferenceAbsolute": 0.5
+    },
+    "GLOBAL_END_MOMENT_TO": {
+      "absolute": 0,
+      "relative": 0.1,
+      "scaleFloor": 0,
+      "comparisonMode": "LITERAL_RELATIVE_WITH_ZERO_ABSOLUTE",
+      "zeroReferenceAbsolute": 0.5
+    },
+    "INCIDENT_GLOBAL_FORCE": {
+      "absolute": 0,
+      "relative": 0.1,
+      "scaleFloor": 0,
+      "comparisonMode": "LITERAL_RELATIVE_WITH_ZERO_ABSOLUTE",
+      "zeroReferenceAbsolute": 5
+    },
+    "INCIDENT_GLOBAL_MOMENT": {
+      "absolute": 0,
+      "relative": 0.1,
+      "scaleFloor": 0,
+      "comparisonMode": "LITERAL_RELATIVE_WITH_ZERO_ABSOLUTE",
+      "zeroReferenceAbsolute": 0.5
+    }
+  },
+  "configurationAuthority": {
+    "schema": "caesar-configuration-authority/v1",
+    "caesarVersion": "14.000",
+    "precedence": [
+      "OVERALL_GLOBAL_DEFAULT",
+      "INDIVIDUAL_FILE_SETTING",
+      "LOAD_CASE_SETTING",
+      "MODEL_INPUT"
+    ],
+    "layers": {
+      "overallGlobalDefault": {
+        "source": "USER_SUPPLIED_CAESAR_14_GLOBAL_SETTINGS_2026-08-09",
+        "settings": {
+          "Z_AXIS_UP": "NO",
+          "USE_PRESSURE_STIFFENING": "DEFAULT",
+          "BEND_AXIAL_SHAPE": "YES",
+          "DEFAULT_TRANS_RESTRAINT_STIFF": {
+            "value": 1000000000000,
+            "unit": "DISPLAYED_CAESAR_UNITS"
+          },
+          "DEFAULT_ROT_RESTRAINT_STIFF": {
+            "value": 1000000000000,
+            "unit": "DISPLAYED_CAESAR_UNITS"
+          },
+          "FRICT_STIF": {
+            "value": 1000000,
+            "unit": "CAESAR_INTERNAL_ENGLISH_UNITS"
+          },
+          "MIN_WALL_MILL_TOLERANCE_PERCENT": 12.5,
+          "AMBIENT_TEMPERATURE": {
+            "value": 70,
+            "unit": "F"
+          },
+          "BOURDON_PRESSURE": "NONE",
+          "COEFFICIENT_OF_FRICTION_MU": 0,
+          "ALL_STRESS_CASES_CORRODED": "NO",
+          "DEFAULT_CODE": "B31.3_2022",
+          "ALLOW_USERS_BEND_SIF": "YES",
+          "LIBERAL_EXPANSION_ALLOWABLE": "YES",
+          "B31_3_SEC_319_2_3C_SAXIAL": "DEFAULT",
+          "B31_3_WELDING_CONTOUR_TEE_IS_B16_9": false,
+          "IMPLEMENT_B313_CODE_CASE_178": "YES",
+          "IGNORE_B31_1_B31_3_WC_FACTOR": "YES",
+          "APPLY_B31J_SIFS_AND_FLEX": "DEFAULT",
+          "ENFORCE_B31J_SIFS_ONLY": false,
+          "CONNECT_GEOMETRY_THRU_CNODES": "YES"
+        }
+      },
+      "modelInput": {
+        "source": "BM4_NL_ACCDB_MODEL_INPUT",
+        "settings": {
+          "COEFFICIENT_OF_FRICTION_MU": 0.3
+        }
+      },
+      "individualFile": {
+        "source": "USER_VERIFIED_BM4_NL_EXISTING_JOB_SETTINGS_2026-08-09",
+        "settings": {
+          "BOURDON_PRESSURE": "TRANSLATION_AND_ROTATION",
+          "AMBIENT_TEMPERATURE": {
+            "value": 21,
+            "unit": "C"
+          },
+          "RESTRAINT_DIRECTIONAL_BEHAVIOR": "BIDIRECTIONAL"
+        }
+      },
+      "loadCase": {
+        "source": "USER_VERIFIED_BM4_NL_L19_L20_CASE_SETTINGS_2026-08-09",
+        "cases": {
+          "L19": {
+            "FLEXIBILITY_ELASTIC_MODULUS": "EC",
+            "FRICTION_MULTIPLIER": 0
+          },
+          "L20": {
+            "FLEXIBILITY_ELASTIC_MODULUS": "EC",
+            "FRICTION_MULTIPLIER": 0
+          }
+        }
+      }
+    },
+    "unresolvedSettings": [
+      {
+        "setting": "B31J_SMOOTH_90_CORRECTION",
+        "caseId": null,
+        "reason": "APPLY_B31J_SIFS_AND_FLEX=DEFAULT does not establish the CAESAR smooth-90/B31J Note-3 choice for this file or load case."
+      },
+      {
+        "setting": "RESTRAINT_FORMULATION",
+        "caseId": null,
+        "reason": "Finite global default stiffness is known, but its exact application to BM4_NL restraints has not been established."
+      },
+      {
+        "setting": "THERMAL_EXPANSION_STRAIN",
+        "caseId": "L20",
+        "reason": "The ACCDB exports T1 but not the CAESAR material-library total strain from 21 C to 120 C; the retained coefficient is provisional pending Print Alphas evidence."
+      },
+      {
+        "setting": "ELBOW_STIFFENING_PRESSURE",
+        "caseId": "L19",
+        "reason": "CAESAR DEFAULT does not establish the load-case elbow pressure source; P1 is retained provisionally."
+      },
+      {
+        "setting": "ELBOW_STIFFENING_PRESSURE",
+        "caseId": "L20",
+        "reason": "CAESAR DEFAULT does not establish the load-case elbow pressure source; P1 is retained provisionally."
+      }
+    ],
+    "precedenceDirection": "LOWEST_TO_HIGHEST_AUTHORITY",
+    "precedenceSource": "OWNER_DIRECTED_ISSUE_1083_OVERALL_GLOBAL_DEFAULT_LT_INDIVIDUAL_FILE_LT_LOAD_CASE_LT_MODEL_INPUT"
+  },
+  "linearSolve": {
+    "thermalExpansion": {
+      "coefficientPerKelvin": 1.17e-05,
+      "authorityStatus": "PROVISIONAL",
+      "source": "LEGACY_BM4_NL_BASELINE_PENDING_CAESAR_PRINT_ALPHAS"
+    },
+    "gravityAcceleration": 9.80665,
+    "bourdonPressureEffects": {
+      "mode": "TRANSLATION_AND_ROTATION",
+      "source": "USER_VERIFIED_CAESAR_EXISTING_JOB_SETTING_2026-08-09"
+    },
+    "directionalB31JTeeFlexibility": true,
+    "teeNominalDiameterRelativeTolerance": 0.001,
+    "reducerCondensation": true,
+    "b31jSmooth90FlexibilityCorrection": {
+      "enabled": false,
+      "authorityStatus": "UNRESOLVED",
+      "source": "BM4_NL_CONFIGURATION_AUTHORITY:B31J_SMOOTH_90_CORRECTION"
+    },
+    "bendPressureStiffening": {
+      "pressureSource": "P1",
+      "authorityStatus": "PROVISIONAL",
+      "source": "BM4_NL_CONFIGURATION_AUTHORITY:ELBOW_STIFFENING_PRESSURE"
+    },
+    "restraintRepresentation": {
+      "mode": "FIXED_DOF",
+      "authorityStatus": "PROVISIONAL",
+      "source": "BM4_NL_CONFIGURATION_AUTHORITY:RESTRAINT_FORMULATION"
+    },
+    "bendAxialShape": {
+      "enabled": true,
+      "method": "DISCRETIZED_CURVED_CENTRELINE_AXIAL_DOF_V1",
+      "source": "BM4_NL_CONFIGURATION_AUTHORITY:BEND_AXIAL_SHAPE"
+    }
+  }
+}

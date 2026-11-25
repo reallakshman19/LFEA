@@ -1,0 +1,225 @@
+import { assembleSparseSymmetric } from '../shared-linear-solve/sparse-matrix.js';
+import { semanticHash } from '../shared-piping-model/canonical-json.js';
+import { ELEMENT_DOF_ORDER } from '../linear-fea-contract/conventions.js';
+import { INACTIVE_ANALYSIS_DOF_BEHAVIOR } from '../linear-fea-contract/model-schema.js';
+import { dofIndexOf } from './dof-map.js';
+import { requireElementContribution } from './element-contributions.js';
+import {
+  DENSE_DIRECT_BACKEND_ID,
+  SPARSE_DIRECT_BACKEND_ID,
+  compareAscii,
+  fail,
+} from './solver-contract.js';
+import { buildSpringTriplets } from './spring-assembly.js';
+
+const LOCAL_DOF_REFERENCES = ELEMENT_DOF_ORDER.map((token) => {
+  const [end, dof] = token.split(':');
+  return { end, dof };
+});
+
+function buildElementTriplets(model, dofMap, elementContributions) {
+  const elementsById = new Map(model.elements.map((element) => [element.elementId, element]));
+  const contributionsById = new Map();
+  for (const contribution of elementContributions) {
+    const accepted = requireElementContribution(contribution);
+    if (contributionsById.has(accepted.elementId)) {
+      fail(`elementContributions declares ${accepted.elementId} more than once.`, 'SOLVER_ELEMENT_CONTRIBUTION_DUPLICATE');
+    }
+    if (!elementsById.has(accepted.elementId)) {
+      fail(
+        `elementContributions declares ${accepted.elementId}, which is not an element of the bound mechanical model.`,
+        'SOLVER_ELEMENT_CONTRIBUTION_UNKNOWN_ELEMENT',
+      );
+    }
+    contributionsById.set(accepted.elementId, accepted);
+  }
+  for (const element of model.elements) {
+    if (!contributionsById.has(element.elementId)) {
+      fail(
+        `Model element ${element.elementId} has no supplied contribution; every element the mechanical model declares must be assembled.`,
+        'SOLVER_ELEMENT_CONTRIBUTION_MISSING',
+      );
+    }
+  }
+
+  const elementIds = [...contributionsById.keys()].sort(compareAscii);
+  const triplets = [];
+  const elementLoad = new Array(dofMap.dofCount).fill(0);
+
+  for (const elementId of elementIds) {
+    const contribution = contributionsById.get(elementId);
+    const element = elementsById.get(elementId);
+    const globalIndices = LOCAL_DOF_REFERENCES.map(({ end, dof }) =>
+      dofIndexOf(dofMap, end === 'I' ? element.nodeI : element.nodeJ, dof));
+
+    for (let row = 0; row < 12; row += 1) {
+      const globalRow = globalIndices[row];
+      elementLoad[globalRow] += contribution.equivalentLoadGlobal[row] + contribution.initialStrainLoadGlobal[row];
+      for (let column = 0; column < 12; column += 1) {
+        const value = contribution.globalStiffness[row * 12 + column];
+        if (value === 0) continue;
+        triplets.push({ row: globalRow, col: globalIndices[column], value, tag: `ELEMENT:${elementId}` });
+      }
+    }
+  }
+  return { triplets, elementLoad, elementIds };
+}
+
+function sortAndSumTriplets(triplets) {
+  const ordered = [...triplets].sort((left, right) => {
+    if (left.row !== right.row) return left.row - right.row;
+    if (left.col !== right.col) return left.col - right.col;
+    return compareAscii(left.tag, right.tag);
+  });
+  const summed = [];
+  for (const triplet of ordered) {
+    const last = summed[summed.length - 1];
+    if (last !== undefined && last.row === triplet.row && last.col === triplet.col) {
+      last.value += triplet.value;
+    } else {
+      summed.push({ row: triplet.row, col: triplet.col, value: triplet.value });
+    }
+  }
+  return summed;
+}
+
+function denseFromTriplets(n, triplets) {
+  const K = new Array(n * n).fill(0);
+  for (const triplet of triplets) K[triplet.row * n + triplet.col] = triplet.value;
+  return K;
+}
+
+function sparseFromTriplets(n, triplets) {
+  const contributions = [];
+  for (const triplet of triplets) {
+    if (triplet.row < triplet.col || triplet.value === 0) continue;
+    if (triplet.row === triplet.col) {
+      contributions.push({ indices: [triplet.row], localMatrix: [[triplet.value]] });
+    } else {
+      contributions.push({
+        indices: [triplet.row, triplet.col],
+        localMatrix: [
+          [0, triplet.value],
+          [triplet.value, 0],
+        ],
+      });
+    }
+  }
+  const assembled = assembleSparseSymmetric(n, contributions);
+  const rows = assembled.rows.map((row) => Object.freeze(new Map(
+    [...row].filter((entry) => entry[1] !== 0),
+  )));
+  return Object.freeze({ size: assembled.size, rows: Object.freeze(rows) });
+}
+
+function assertSymmetricDense(K, n) {
+  let worst = 0;
+  for (let row = 0; row < n; row += 1) {
+    for (let column = row + 1; column < n; column += 1) {
+      const a = K[row * n + column];
+      const b = K[column * n + row];
+      const scale = Math.max(Math.abs(a), Math.abs(b), 1);
+      worst = Math.max(worst, Math.abs(a - b) / scale);
+    }
+  }
+  assertSymmetryResidual(worst);
+  return worst;
+}
+
+function assertSymmetricSparse(triplets) {
+  const entries = new Map(triplets.map((triplet) => [`${triplet.row}:${triplet.col}`, triplet.value]));
+  let worst = 0;
+  for (const triplet of triplets) {
+    if (triplet.row === triplet.col) continue;
+    const reflected = entries.get(`${triplet.col}:${triplet.row}`);
+    const reflectedValue = reflected === undefined ? 0 : reflected;
+    const scale = Math.max(Math.abs(triplet.value), Math.abs(reflectedValue), 1);
+    worst = Math.max(worst, Math.abs(triplet.value - reflectedValue) / scale);
+  }
+  assertSymmetryResidual(worst);
+  return worst;
+}
+
+function assertSymmetryResidual(worst) {
+  if (worst > 1e-9) {
+    fail(
+      `Assembled global stiffness is not symmetric within tolerance (worst normalized asymmetry ${worst}); duplicate contributions must sum to a symmetric system.`,
+      'SOLVER_ASSEMBLY_ASYMMETRIC',
+    );
+  }
+}
+
+function partitionDofs(model, dofMap) {
+  const constrained = model.constraints
+    .filter((constraint) => constraint.behavior === 'FIXED'
+      || constraint.behavior === 'PRESCRIBED_SLOT'
+      || constraint.behavior === INACTIVE_ANALYSIS_DOF_BEHAVIOR)
+    .map((constraint) => ({
+      constraintId: constraint.constraintId,
+      nodeId: constraint.nodeId,
+      dof: constraint.dof,
+      behavior: constraint.behavior,
+      globalIndex: dofIndexOf(dofMap, constraint.nodeId, constraint.dof),
+    }))
+    .sort((left, right) => left.globalIndex - right.globalIndex);
+  const constrainedIndices = new Set(constrained.map((entry) => entry.globalIndex));
+  const freeIndices = [];
+  for (let index = 0; index < dofMap.dofCount; index += 1) {
+    if (!constrainedIndices.has(index)) freeIndices.push(index);
+  }
+  const partitionHash = semanticHash({
+    eliminated: constrained.map((entry) => ({
+      nodeId: entry.nodeId,
+      dof: entry.dof,
+      role: entry.behavior === INACTIVE_ANALYSIS_DOF_BEHAVIOR ? 'INACTIVE' : 'CONSTRAINED',
+    })),
+  });
+  return { constrained, freeIndices, partitionHash };
+}
+
+export function assembleGlobalSystem({
+  model,
+  dofMap,
+  elementContributions,
+  backend = DENSE_DIRECT_BACKEND_ID,
+}) {
+  const n = dofMap.dofCount;
+  const elementResult = buildElementTriplets(model, dofMap, elementContributions);
+  const springResult = buildSpringTriplets(model, dofMap);
+  const allTriplets = [...elementResult.triplets, ...springResult.triplets];
+  const summed = sortAndSumTriplets(allTriplets);
+
+  let matrixRepresentation;
+  let symmetryResidual;
+  if (backend === DENSE_DIRECT_BACKEND_ID) {
+    const K = denseFromTriplets(n, summed);
+    symmetryResidual = assertSymmetricDense(K, n);
+    matrixRepresentation = { K };
+  } else if (backend === SPARSE_DIRECT_BACKEND_ID) {
+    symmetryResidual = assertSymmetricSparse(summed);
+    matrixRepresentation = { sparseK: sparseFromTriplets(n, summed) };
+  } else {
+    fail(`Solver backend ${backend} is not supported by assembleGlobalSystem.`, 'SOLVER_BACKEND_UNSUPPORTED');
+  }
+
+  const partition = partitionDofs(model, dofMap);
+  const retainedTriplets = Object.freeze(summed.map((triplet) => Object.freeze({ ...triplet })));
+  const lowerTriangleNonzeroCount = retainedTriplets
+    .filter((triplet) => triplet.row >= triplet.col && triplet.value !== 0)
+    .length;
+
+  return Object.freeze({
+    n,
+    ...matrixRepresentation,
+    triplets: retainedTriplets,
+    elementLoad: elementResult.elementLoad,
+    tripletCount: retainedTriplets.length,
+    lowerTriangleNonzeroCount,
+    elementCount: elementResult.elementIds.length,
+    springCount: springResult.springs.length,
+    symmetryResidual,
+    constrained: partition.constrained,
+    freeIndices: partition.freeIndices,
+    partitionHash: partition.partitionHash,
+  });
+}

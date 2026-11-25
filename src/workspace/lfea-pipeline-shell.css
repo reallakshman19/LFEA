@@ -1,0 +1,822 @@
+@import './lfea-source-acquisition.css';
+
+.lfea-pipeline-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  color: var(--workspace-text);
+}
+
+.lfea-pipeline-shell__toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--workspace-border);
+  background: var(--workspace-panel-strong);
+}
+
+.lfea-pipeline-shell__toolbar-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid var(--workspace-border);
+  border-radius: 6px;
+  background: var(--workspace-panel);
+  color: var(--workspace-text);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.lfea-pipeline-shell__toolbar-action:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--workspace-accent) 65%, var(--workspace-border));
+}
+
+.lfea-pipeline-shell__toolbar-action:focus-visible,
+.lfea-pipeline-shell__step:focus-visible {
+  outline: 2px solid var(--workspace-accent);
+  outline-offset: 2px;
+}
+
+.lfea-pipeline-shell__toolbar-action .lfea-pipeline-icon {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  stroke: currentColor;
+  fill: none;
+}
+
+.lfea-pipeline-shell__load-sample:disabled,
+.lfea-pipeline-shell__toolbar-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.lfea-pipeline-shell__authority {
+  color: var(--workspace-muted);
+}
+
+.lfea-pipeline-shell__toolbar-label {
+  color: inherit;
+  white-space: nowrap;
+}
+
+.lfea-pipeline-shell__toolbar-status {
+  max-width: 180px;
+  padding-left: 7px;
+  overflow: hidden;
+  border-left: 1px solid var(--workspace-border);
+  color: var(--workspace-muted);
+  font-size: 10px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lfea-pipeline-shell__assemble {
+  border-color: color-mix(in srgb, var(--workspace-accent) 65%, var(--workspace-border));
+}
+
+[data-role="lfea-pipeline-assemble-status"] {
+  min-width: 0;
+  color: var(--workspace-muted);
+  font-size: 11px;
+}
+
+[data-role="lfea-pipeline-assemble-status"][data-status="error"] {
+  color: #f87171;
+}
+
+.lfea-pipeline-shell__verification-toggle {
+  margin-left: auto;
+  color: var(--workspace-muted);
+}
+
+.lfea-pipeline-shell__verification-toggle--open {
+  border-color: var(--workspace-accent);
+  color: var(--workspace-text);
+  background: color-mix(in srgb, var(--workspace-accent) 10%, var(--workspace-panel));
+}
+
+.lfea-pipeline-shell__verification-drawer {
+  flex: 0 0 auto;
+  max-height: 40vh;
+  overflow-y: auto;
+  padding: 12px;
+  border-top: 1px solid var(--workspace-border);
+  background: var(--workspace-panel);
+}
+
+.lfea-pipeline-shell__verification-drawer[hidden] {
+  display: none;
+}
+
+[data-role="lfea-pipeline-verification-drawer-intro"] {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--workspace-muted);
+}
+
+/* One connected workflow rail. Each step keeps a stable icon and ordinal;
+   completion is an overlay state rather than replacing the step identity. */
+.lfea-pipeline-shell__stepper {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 10px 12px 9px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--workspace-border);
+  background: var(--workspace-panel);
+}
+
+.lfea-pipeline-shell__step {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 114px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--workspace-muted);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.lfea-pipeline-shell__step:disabled {
+  opacity: 0.46;
+  cursor: not-allowed;
+}
+
+.lfea-pipeline-shell__step-visual {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--workspace-border);
+  border-radius: 7px;
+  background: var(--workspace-panel-strong);
+}
+
+.lfea-pipeline-shell__step-visual > .lfea-pipeline-icon {
+  width: 17px;
+  height: 17px;
+  stroke: currentColor;
+  fill: none;
+}
+
+.lfea-pipeline-shell__step-index {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border: 1px solid var(--workspace-border);
+  border-radius: 999px;
+  background: var(--workspace-panel);
+  color: var(--workspace-muted);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lfea-pipeline-shell__step-complete-icon {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  color: #6ee7b7;
+  background: var(--workspace-panel);
+  border-radius: 50%;
+}
+
+.lfea-pipeline-shell__step-complete-icon[hidden] {
+  display: none;
+}
+
+.lfea-pipeline-shell__step-complete-icon .lfea-pipeline-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.lfea-pipeline-shell__step-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.lfea-pipeline-shell__step-label {
+  color: inherit;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.lfea-pipeline-shell__step-status {
+  color: var(--workspace-muted);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.lfea-pipeline-shell__step--active {
+  border-color: color-mix(in srgb, var(--workspace-accent) 70%, var(--workspace-border));
+  background: color-mix(in srgb, var(--workspace-accent) 10%, transparent);
+  color: var(--workspace-text);
+}
+
+.lfea-pipeline-shell__step--active .lfea-pipeline-shell__step-visual {
+  border-color: var(--workspace-accent);
+  color: var(--workspace-text);
+}
+
+.lfea-pipeline-shell__step--active .lfea-pipeline-shell__step-index {
+  border-color: var(--workspace-accent);
+  color: var(--workspace-text);
+}
+
+.lfea-pipeline-shell__step--complete {
+  color: var(--workspace-text);
+}
+
+.lfea-pipeline-shell__step--complete .lfea-pipeline-shell__step-visual {
+  border-color: color-mix(in srgb, #6ee7b7 45%, var(--workspace-border));
+}
+
+.lfea-pipeline-shell__step--next:not(:disabled):not(.lfea-pipeline-shell__step--active) {
+  color: var(--workspace-text);
+}
+
+.lfea-pipeline-shell__connector {
+  align-self: center;
+  flex: 1 1 34px;
+  min-width: 18px;
+  max-width: 54px;
+  height: 2px;
+  margin: 0 2px;
+  border-radius: 999px;
+  background: var(--workspace-border);
+}
+
+.lfea-pipeline-shell__connector[data-connector-status="COMPLETE"] {
+  background: color-mix(in srgb, #6ee7b7 70%, var(--workspace-border));
+}
+
+.lfea-pipeline-shell__connector[data-connector-status="ACTIVE"] {
+  background: var(--workspace-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--workspace-accent) 18%, transparent);
+}
+
+.lfea-pipeline-shell__connector[data-connector-status="BLOCKED"] {
+  background: repeating-linear-gradient(90deg, var(--workspace-border) 0 4px, transparent 4px 7px);
+}
+
+.lfea-pipeline-shell__context {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--workspace-border);
+  background: var(--workspace-panel-strong);
+}
+
+.lfea-pipeline-shell__context-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid color-mix(in srgb, var(--workspace-accent) 55%, var(--workspace-border));
+  border-radius: 8px;
+  color: var(--workspace-text);
+  background: color-mix(in srgb, var(--workspace-accent) 9%, var(--workspace-panel));
+}
+
+.lfea-pipeline-shell__context-icon .lfea-pipeline-icon {
+  width: 19px;
+  height: 19px;
+  stroke: currentColor;
+  fill: none;
+}
+
+.lfea-pipeline-shell__context-copy {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  column-gap: 8px;
+  min-width: 0;
+}
+
+.lfea-pipeline-shell__context-eyebrow {
+  grid-column: 1;
+  color: var(--workspace-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.lfea-pipeline-shell__context-copy strong {
+  grid-column: 2;
+  color: var(--workspace-text);
+  font-size: 13px;
+}
+
+.lfea-pipeline-shell__context-description {
+  grid-column: 1 / -1;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--workspace-muted);
+  font-size: 11px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lfea-pipeline-shell__context-state {
+  padding: 3px 7px;
+  border: 1px solid var(--workspace-border);
+  border-radius: 999px;
+  color: var(--workspace-muted);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.lfea-pipeline-shell__context[data-step-status="CURRENT"] .lfea-pipeline-shell__context-state {
+  border-color: var(--workspace-accent);
+  color: var(--workspace-text);
+}
+
+.lfea-pipeline-shell__context[data-step-status="COMPLETE"] .lfea-pipeline-shell__context-state {
+  border-color: color-mix(in srgb, #6ee7b7 55%, var(--workspace-border));
+  color: #a7f3d0;
+}
+
+.lfea-pipeline-shell__context[data-step-status="BLOCKED"] .lfea-pipeline-shell__context-state {
+  border-color: color-mix(in srgb, #f87171 55%, var(--workspace-border));
+  color: #fca5a5;
+}
+
+.lfea-pipeline-shell__guidance {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--workspace-border);
+  background: var(--workspace-panel);
+  color: var(--workspace-muted);
+  font-size: 11px;
+}
+
+.lfea-pipeline-shell__content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.lfea-pipeline-shell__host[hidden] {
+  display: none;
+}
+
+@media (max-width: 1080px) {
+  .lfea-pipeline-shell__toolbar {
+    flex-wrap: wrap;
+  }
+
+  .lfea-pipeline-shell__verification-toggle {
+    margin-left: 0;
+  }
+
+  .lfea-pipeline-shell__step {
+    min-width: 100px;
+  }
+
+  .lfea-pipeline-shell__step-status {
+    display: none;
+  }
+}
+
+.application-navigation-shell {
+  position: relative;
+}
+
+.global-settings-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--workspace-border, #1e293b);
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.global-settings-button svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+}
+
+.global-settings-button[aria-expanded="true"] {
+  color: #e5eefb;
+  border-color: #60a5fa;
+}
+
+.global-settings-popover {
+  position: absolute;
+  top: 42px;
+  right: 12px;
+  z-index: 50;
+  width: min(320px, calc(100vw - 24px));
+  padding: 12px 14px;
+  border: 1px solid #315070;
+  border-radius: 8px;
+  background: #081321;
+  color: #e2e8f0;
+  box-shadow: 0 24px 80px #020617cc;
+}
+
+.global-settings-popover h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.global-settings-popover__list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.global-settings-popover__list dt {
+  color: #8ca0b8;
+}
+
+.global-settings-popover__hint {
+  margin: 10px 0 0;
+  color: #8ca0b8;
+  font-size: 11px;
+}
+
+.global-settings-popover__empty {
+  margin: 0;
+  color: #8ca0b8;
+  font-size: 12px;
+}
+
+/* ---- Load case step: the model's own analysis cases ---- */
+.lfea-pipeline-case-selection {
+  padding: 14px 16px;
+}
+
+.lfea-pipeline-case-selection__category {
+  margin: 14px 0 6px;
+  color: #8ca0b8;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.lfea-pipeline-case-selection__row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 5px 0;
+  cursor: pointer;
+}
+
+.lfea-pipeline-case-selection__row strong {
+  min-width: 84px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lfea-pipeline-case-selection__row span {
+  color: #8ca0b8;
+  font-size: 12px;
+}
+
+.lfea-pipeline-case-selection__toolbar {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* ---- Output step ---- */
+.lfea-pipeline-results {
+  padding: 14px 16px;
+}
+
+.lfea-pipeline-results__cases,
+.lfea-pipeline-results__views {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0;
+  flex-wrap: wrap;
+}
+
+.lfea-pipeline-results__cases button[data-active="true"],
+.lfea-pipeline-results__views button[data-active="true"] {
+  outline: 2px solid #4c8ed9;
+}
+
+.lfea-pipeline-results__warning {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-left: 3px solid #d9a441;
+  background: rgba(217, 164, 65, 0.08);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Governing values, before the table of everything. */
+.lfea-pipeline-results__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px 12px;
+  margin: 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--workspace-border);
+  border-radius: 6px;
+  background: var(--workspace-panel);
+}
+
+.lfea-pipeline-results__summary dt {
+  grid-row: 1;
+  color: var(--workspace-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.lfea-pipeline-results__summary dd {
+  grid-row: 2;
+  margin: 0;
+  color: var(--workspace-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.lfea-pipeline-results__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  font-size: 12px;
+}
+
+/* Sorting is a column header action, so the header reads as one. */
+.lfea-pipeline-results__table th button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* The rows the summary above is pointing at. */
+.lfea-pipeline-results__table tr[data-extreme="true"] {
+  background: color-mix(in srgb, var(--workspace-accent) 12%, transparent);
+}
+
+.lfea-pipeline-results__scroll {
+  max-height: 460px;
+  overflow: auto;
+  border: 1px solid var(--workspace-border, #2b3a4d);
+}
+
+.lfea-pipeline-results__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lfea-pipeline-results__table th,
+.lfea-pipeline-results__table td {
+  padding: 4px 10px;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--workspace-border, #2b3a4d);
+}
+
+.lfea-pipeline-results__table th:first-child,
+.lfea-pipeline-results__table td:first-child {
+  text-align: left;
+}
+
+.lfea-pipeline-results__table th {
+  position: sticky;
+  top: 0;
+  background: var(--workspace-panel, #16202c);
+}
+
+.lfea-pipeline-results__export {
+  margin-top: 12px;
+}
+
+/* ---- Layout grid ---- */
+.lfea-pipeline-layout {
+  margin: 16px;
+  border: 1px solid var(--workspace-border, #2b3a4d);
+}
+
+.lfea-pipeline-layout > summary {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.lfea-pipeline-layout__body {
+  padding: 0 14px 14px;
+}
+
+.lfea-pipeline-layout__scroll {
+  max-height: 420px;
+  overflow: auto;
+  border: 1px solid var(--workspace-border, #2b3a4d);
+}
+
+.lfea-pipeline-layout__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lfea-pipeline-layout__table th,
+.lfea-pipeline-layout__table td {
+  padding: 3px 8px;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--workspace-border, #2b3a4d);
+}
+
+.lfea-pipeline-layout__table td[data-align="right"],
+.lfea-pipeline-layout__table th[data-align="right"] {
+  text-align: right;
+}
+
+.lfea-pipeline-layout__table th {
+  position: sticky;
+  top: 0;
+  background: var(--workspace-panel, #16202c);
+  text-align: left;
+}
+
+.lfea-pipeline-layout__note {
+  margin: 8px 0 0;
+  color: #8ca0b8;
+  font-size: 11px;
+}
+
+/* ---- Input vs Error check ----
+   Both steps render into the SOURCE host, but they answer different
+   questions. Input is the file and the statistics read from it; Error check is
+   the review of what those mean and what to do about it. Showing findings on
+   Input made the two steps indistinguishable. */
+[data-host-group="SOURCE"][data-active-step="INPUT"]
+  [data-role="linear-piping-inputxml-review"],
+[data-host-group="SOURCE"][data-active-step="INPUT"]
+  [data-role="lfea-pipeline-model-repair-panel"] {
+  display: none;
+}
+
+/* StagedJSON converts into InputXML and has no review of its own, so its
+   panel belongs to Input only. The ACCDB panel is not like that: it owns its
+   model's whole verdict -- capabilities, findings, and the acceptance that
+   releases the analysis -- so hiding it here sent an engineer to the one step
+   that hid what it told them to look at. It stays, and shows its review half
+   instead. */
+[data-host-group="SOURCE"][data-active-step="ERROR_CHECK"]
+  [data-role="lfea-pipeline-stagedjson-input-panel"] {
+  display: none;
+}
+
+/* ---- One loaded model, one source panel ----
+   The three source panels share this host so an engineer can pick one while
+   nothing is loaded. Once something IS loaded the other two only mislead --
+   an imported ACCDB left the InputXML panel below it announcing "No native
+   InputXML source is loaded", including on the step reviewing the ACCDB
+   model. Clearing the loaded source brings the choice back. */
+[data-host-group="SOURCE"][data-active-source="ACCDB"]
+  [data-role="linear-piping-inputxml-source-workflow"],
+[data-host-group="SOURCE"][data-active-source="ACCDB"]
+  [data-role="lfea-pipeline-stagedjson-input-panel"],
+[data-host-group="SOURCE"][data-active-source="ACCDB"]
+  [data-role="lfea-pipeline-model-repair-panel"],
+[data-host-group="SOURCE"][data-active-source="INPUTXML"]
+  [data-role="lfea-pipeline-accdb-input-panel"],
+[data-host-group="SOURCE"][data-active-source="INPUTXML"]
+  [data-role="lfea-pipeline-stagedjson-input-panel"] {
+  display: none;
+}
+
+[data-host-group="SOURCE"][data-active-step="INPUT"]
+  [data-role="lfea-pipeline-accdb-review-view"],
+[data-host-group="SOURCE"][data-active-step="ERROR_CHECK"]
+  [data-role="lfea-pipeline-accdb-source-view"] {
+  display: none;
+}
+
+/* ---- B31 / B31J component basis control ----
+   The one place the code edition and bend smooth-90 rule are chosen. It
+   mounts at the top of the source host, above every source panel, as a bare
+   fieldset -- without card styling it read as stray markup instead of the
+   control the BLOCK findings point at. */
+.lfea-bend-factor-authority-control {
+  margin: 12px 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--workspace-border);
+  border-radius: 8px;
+  background: var(--workspace-panel);
+  color: var(--workspace-text);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  min-inline-size: 0;
+}
+
+.lfea-bend-factor-authority-control legend {
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--workspace-text);
+}
+
+.lfea-bend-factor-authority-control label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--workspace-muted);
+}
+
+.lfea-bend-factor-authority-control select {
+  padding: 5px 8px;
+  border: 1px solid var(--workspace-border);
+  border-radius: 6px;
+  background: var(--workspace-panel-strong);
+  color: var(--workspace-text);
+  font-size: 12px;
+  max-width: 320px;
+}
+
+.lfea-bend-factor-authority-control [data-role="lfea-bend-factor-authority-disclosure"] {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--workspace-muted);
+}
+
+/* Spotlight: the Error Check jump-button's target. Brief accent pulse so the
+   engineer sees exactly which control resolves the authority gate. */
+.lfea-bend-factor-authority-control--spotlight {
+  animation: lfea-bend-factor-spotlight 0.85s ease-in-out 3;
+}
+
+@keyframes lfea-bend-factor-spotlight {
+  0%, 100% {
+    border-color: var(--workspace-border);
+    box-shadow: none;
+  }
+  50% {
+    border-color: var(--workspace-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--workspace-accent) 35%, transparent);
+  }
+}
+
+/* Inline variant: the same control mounted inside an Error Check BLOCK row,
+   so the engineer resolves the authority gate where it is reported instead
+   of being sent elsewhere. Full row width, tighter spacing. */
+.lfea-bend-factor-authority-control--inline {
+  flex-basis: 100%;
+  margin: 4px 0 0;
+  padding: 10px 12px;
+  background: var(--workspace-panel-strong);
+}
+
+.lfea-bend-factor-authority-control--inline select {
+  max-width: none;
+  min-width: 220px;
+}
