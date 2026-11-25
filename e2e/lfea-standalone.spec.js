@@ -65,7 +65,7 @@ async function createDossier(page) {
   await create.click();
   await expect(verification.getByText('CURRENT_EVIDENCE_ONLY', { exact: true })).toBeVisible();
   await expect(verification.getByText('NO', { exact: true })).toBeVisible();
-  await expect(verification.getByText('SUPPORT_ACTIONS_PUBLICATION_BLOCKED').first()).toBeVisible();
+  await expect(verification.getByText('SUPPORT_ACTIONS_PUBLICATION_BLOCKED')).toHaveCount(0);
   await expect(verification.getByText('B31_CODE_PUBLICATION_BLOCKED').first()).toBeVisible();
 }
 
@@ -91,7 +91,9 @@ test.describe('LFEA standalone governed browser journey', () => {
     await runNative(page);
     const results = page.locator(view('results'));
     await expect(results.getByText('Support actions Fa / Fl / Fv')).toBeVisible();
-    await expect(results.getByText('GOVERNED_INTERFACE_SET_REQUIRED').first()).toBeVisible();
+    // Practical analysis: support actions publish from derived, labelled supports.
+    await expect(results.getByText(/DERIVED from the model restraints used by the solve/u).first()).toBeVisible();
+    await expect(results.getByText('GOVERNED_INTERFACE_SET_REQUIRED')).toHaveCount(0);
     await expect(results.getByText('COMPONENT_CODE_POINT_RECOVERY_REQUIRED').first()).toBeVisible();
     await createDossier(page);
 
