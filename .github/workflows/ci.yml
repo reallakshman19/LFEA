@@ -54,6 +54,8 @@ jobs:
         env:
           PUPPETEER_SKIP_DOWNLOAD: '1'
       - run: npx playwright install --with-deps chromium
+      # The demo browser check serves dist-lfea through `vite preview`.
+      - run: npx vite build
       - run: npm run check:ci-browser
       - run: npx playwright test e2e/lfea-standalone.spec.js --reporter=line
       - if: failure()

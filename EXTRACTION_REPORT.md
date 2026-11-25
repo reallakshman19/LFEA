@@ -14,9 +14,11 @@ trees checked out with LF line endings and run with Node 22 on Windows 11.
 | Fail | 53 | all 53 also fail in AA3 |
 | Fail only in LFEA | **0** | |
 
-The green set (257 checks) is listed in `scripts/ci-checks.json`.
-`npm run check:ci` runs it; `npm run check:ci-browser` runs the one check
-that needs Chromium.
+The green set is listed in `scripts/ci-checks.json`: 256 checks.
+`npm run check:ci` runs the 255 that need no browser; `npm run check:ci-browser`
+runs the one that needs Chromium. The 257th, `lfea-standalone-build-artifact-check`,
+needs `dist-lfea/` and runs after `npm run build`. All 257 pass on Windows
+(Node 22) and in GitHub Actions on ubuntu-24.04.
 
 Also verified:
 
