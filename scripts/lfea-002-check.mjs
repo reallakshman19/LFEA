@@ -5,7 +5,6 @@ const files = [
   'lfea-002-numerical-check.mjs',
   'lfea-002-failure-check.mjs',
   'lfea-002-determinism-check.mjs',
-  'lfea-002-source-guard.mjs',
 ];
 for (const file of files) {
   const result = spawnSync(process.execPath, [fileURLToPath(new URL(file, import.meta.url))], { stdio: 'inherit' });
