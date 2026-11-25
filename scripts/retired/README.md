@@ -1,6 +1,7 @@
 # Retired AA3 delivery guards
 
-`lfea-001`…`lfea-006-source-guard.mjs` were one-shot change guards for the
+`lfea-001`…`lfea-006-source-guard.mjs` and `w10.11-pipe-solver-source-guard.mjs`
+were one-shot change guards for the
 original AA3 pull requests that introduced LFEA-001…006. Each one diffs a
 pinned AA3 base commit against `HEAD` and allows only that PR's paths and
 CI workflow.

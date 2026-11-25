@@ -67,3 +67,4 @@ artifacts/
 
 # Playwright local output
 test-results/
+.vite/

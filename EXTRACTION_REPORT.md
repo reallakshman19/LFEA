@@ -2,38 +2,58 @@
 
 Source: `reallakshman19/AA3` @ `a8650bb` (2026-10-11).
 Extracted: 2026-11-25.
+Comparison baseline: an unmodified AA3 checkout at the same commit, both
+trees checked out with LF line endings and run with Node 22 on Windows 11.
 
-## Verified in this repo
+## Result
 
-| Check | Result |
-|---|---|
-| `scripts/lfea-standalone-boundary-check.mjs` (446 modules, no LAFEA / combined shell) | PASS |
-| `scripts/lfea-standalone-boundary-self-test.mjs` (LAFEA absent; LAFEA + legacy imports rejected) | PASS |
-| Standalone qualification steps from `scripts/run-lfea-standalone-check.mjs` | all PASS except `lfea-standalone-native-execution-check`, which also fails in AA3 |
-| `npm run build` + `lfea-standalone-build-artifact-check` | PASS |
-| `e2e/lfea-standalone.spec.js`: Source → Run → Results → Verification/Dossier → stale → rerun → Compare → reload, plus the malformed-source test | 2/2 PASS (Edge channel) |
-| Every `scripts/*-check.mjs` / `*-guard.mjs` (330) | 250 PASS. The 67 still failing also fail in an unmodified AA3 checkout on the same machine (listed below). |
+| | LFEA | Unmodified AA3 |
+|---|---|---|
+| LFEA check scripts run | 310 | 310 (same list) |
+| Pass | 257 | — |
+| Fail | 53 | all 53 also fail in AA3 |
+| Fail only in LFEA | **0** | |
 
-## Changed relative to AA3
+The green set (257 checks) is listed in `scripts/ci-checks.json`.
+`npm run check:ci` runs it; `npm run check:ci-browser` runs the one check
+that needs Chromium.
 
-- `package.json`: only LFEA / linear-piping / ACCDB / StagedJSON scripts.
-  New `gate` script: the LFEA parts of AA3's `gate`, then `build`.
-- `vite.config.js`: single `lfea.html` input, vendor-only manual chunks.
-  AA3's core partitions produced circular chunks in this smaller graph.
-- `vite.lfea.config.js`: delegates to `vite.config.js`.
-- `playwright.config.js`: the webServer readiness URL is now `/Advanced_Analysis/lfea.html`.
-- `scripts/lfea-standalone-boundary-check.mjs`: an import of a LAFEA or
-  legacy-shell path is reported as a boundary violation even though the
-  file no longer exists here.
-- `scripts/lfea-standalone-boundary-self-test.mjs`: AA3's "physical-absence"
-  mode is now the permanent state of this repo.
-- `scripts/run-lfea-standalone-check.mjs`: dropped the removed source-workflow check.
+Also verified:
 
-## Removed: checks that assert wiring inside AA3's combined app
+- `npm run build`, `lfea-standalone-build-artifact-check`
+- `e2e/lfea-standalone.spec.js` (2/2): Source → Run → Results →
+  Verification/Dossier → stale → rerun → Compare → reload, plus the
+  malformed-source test
+- `npm run lint`
 
-These read `src/main.js`, `src/workspace/bootstrap.js` or
-`src/workspace/workspace-layout.js`, which don't exist in a standalone LFEA app.
-Their npm-script references were removed as well.
+> **Line endings matter.** Several checks hash or regex-match source text.
+> On Windows with `core.autocrlf=true`, a CRLF checkout makes extra checks
+> fail in both repos. This repo pins LF in `.gitattributes`.
+
+## Changes relative to AA3
+
+| File | Change | Why |
+|---|---|---|
+| `package.json` | Only LFEA / linear-piping / ACCDB / StagedJSON scripts. New `gate`, `check:ci`, `check:ci-browser`. `check:lfea-b3.4` moved directly after `b3.3` in `check:lfea-linear-core`. | New repo; the B-3.4 source guard requires that order |
+| `vite.config.js`, `vite.lfea.config.js` | Single `lfea.html` input, vendor-only chunks, base `/LFEA/` | Own app; AA3's core partitions made circular chunks here |
+| `public/index.html` | `/LFEA/` redirects to `lfea.html` | Root URL |
+| `playwright.config.js` | Readiness probe hits `/LFEA/lfea.html` | `/` is 404 under a base path |
+| `e2e/lfea-standalone.spec.js`, `scripts/lfea-standalone-e2e-source-check.mjs`, `scripts/lfea-phase6h-demo-browser-check.mjs` | `/Advanced_Analysis/` → `/LFEA/` | Base path |
+| `scripts/lfea-standalone-boundary-check.mjs` | An import of a LAFEA / legacy-shell path is a violation even though the file is absent | LAFEA is physically absent here |
+| `scripts/lfea-standalone-boundary-self-test.mjs` | Physical absence is the permanent state | Same |
+| `scripts/run-lfea-standalone-check.mjs` | Dropped the removed source-workflow check | Combined-shell check |
+| `scripts/lfea-001-check.mjs`, `scripts/lfea-002-check.mjs` | Dropped the retired per-PR source guard from the runner list | See below |
+| `eslint.config.js` | Ignore `dist-lfea`, `public/vendor`, `scripts/retired` | Built or vendored files |
+| `src/workspace/lfea-case-selection-preferences.js` | `eslint-disable-next-line no-control-regex` on a regex that rejects control characters | The control-character regex is intentional |
+| `.gitattributes` | `* text=auto eol=lf` | See the note above |
+
+Evidence and governance records still name their origin repository
+`reallaksh19/Advanced_Analysis`. That is provenance and was left unchanged.
+
+## Removed or retired
+
+**Removed: they assert wiring inside AA3's combined app.** These read
+`src/main.js`, `bootstrap.js` or `workspace-layout.js`.
 
 - `lfea-p0-ui-containment-check`
 - `lfea-pipeline-analysis-anti-drift-check`
@@ -47,100 +67,87 @@ Their npm-script references were removed as well.
 - `linear-piping-presentation-anti-drift-check`
 - `linear-piping-workspace-integration-check`
 - `linear-piping-inputxml-analyzer-integration-check`
+- `qa-check` (AA3's combined-app QA runner)
 
-The 14 `e2e/lfea-pipeline-*` / `lfea-workbench` specs that drive AA3's
-combined `index.html` were not copied either.
+**Retired to `scripts/retired/`:** `lfea-001…006-source-guard`,
+`w10.11-pipe-solver-source-guard`. These are per-PR delivery guards that
+diff pinned AA3 base commits against `HEAD`, so they cannot pass outside
+AA3's history.
 
-## Not copied
+**Not copied:** LAFEA, the combined shell (`src/main.js`, `index.html`,
+`analyze.html`, `bootstrap.js`), WRC/EMP.1, first-cut load estimation, the
+14 combined-app `e2e/lfea-pipeline-*` specs, and AA3's
+`.github/workflows/lfea-*.yml`.
 
-LAFEA (`src/**/lafea*`), the combined shell (`src/main.js`, `index.html`,
-`analyze.html`, `src/workspace/bootstrap.js`), WRC/EMP.1, first-cut load
-estimation, the CII standalone port beyond the 2 files LFEA imports, and
-`.github/workflows/lfea-*.yml`. The workflows use AA3's CI setup; add them
-deliberately if you want CI.
+**Evidence file restored:** `reports/lfea-bm1-cii-output-comparison.json` is
+byte-identical to AA3 (blob `0ee951b`). Note that
+`lfea-bm1-cii-output-comparison-check` rewrites this file on every run. With
+current code it differs from the stored evidence only at about 1e-22 (float
+noise), in both repos.
 
-## Checks failing here and in unmodified AA3
+## The 53 known failures (all also fail in unmodified AA3)
 
-These failures are not caused by the extraction.
+### A. Missing upstream inputs (19), which need files from the owner
 
-### Assertion / source drift upstream (37)
+- **BM2 / BM3 benchmark XML** (`benchmarks/LFEA/BM2`, `BM3`) is not in AA3.
+  Affected: `lfea-b3.25`, `b3.26` ×2, `b3.28`, `b3.29`,
+  `lfea-bm2-consolidated-latest-output`, `lfea-bm3-consolidated-latest-output`,
+  `lfea-common-caesar-output-benchmark-policy`,
+  `lfea-common-inputxml-restraint-correction`, `lfea-inputxml-load-diagnostics`,
+  `lfea-m028-bm3`, `lfea-m029-bm3-hanger`.
+- **GitHub workflow files that AA3 does not contain:** `lfea-piping-phase6e`,
+  `phase6i-governance-recording`, `phase6i-independent-closure` anti-drift.
+- **Phase-6I anti-drift** expects `linear-piping-presentation-anti-drift-check`
+  (combined-shell, removed above).
+- `lfea-piping-a0-baseline-check` needs a git `origin` remote and pinned
+  baseline. `lfea-piping-phase-findings-check`: `LFEA_PHASE_EVIDENCE_MISSING`.
+- `lfea-bm4l-built-asset-check` expects the combined app to emit BM4_L.ACCDB
+  under `dist/`. The standalone app does not import the pinned-ACCDB module
+  (see `docs/UNWIRED_MODULES.md`).
 
-- `scripts/lfea-001-check.mjs` — Error: ENOENT: no such file or directory, scandir 'D:\D:\CodeE\LFEA\src\core\element-fea'
-- `scripts/lfea-001-source-guard.mjs` — Error: ENOENT: no such file or directory, scandir 'D:\D:\CodeE\LFEA\src\core\element-fea'
-- `scripts/lfea-002-check.mjs` — const err = new Error(message);
-- `scripts/lfea-002-source-guard.mjs` — const err = new Error(message);
-- `scripts/lfea-003-source-guard.mjs` — const err = new Error(message);
-- `scripts/lfea-b3.1-source-guard.mjs` — AssertionError [ERR_ASSERTION]: section geometry must not be read here; the compiled A, Iy, Iz, J states are the section authority
-- `scripts/lfea-b3.14-appendix-s-example3-check.mjs` — throw new FrameElementError(message, code);
-- `scripts/lfea-b3.23-reducer-condensation-check.mjs` — AssertionError [ERR_ASSERTION]: Candidate reducer condensation authority must not be reachable from the production linear-piping consumer.
-- `scripts/lfea-b3.4-recovery-check.mjs` — AssertionError [ERR_ASSERTION]: Missing expected exception.
-- `scripts/lfea-b3.4-source-guard.mjs` — AssertionError [ERR_ASSERTION]: check:lfea-b3.4 must run inside check:lfea-linear-core, directly after check:lfea-b3.3
-- `scripts/lfea-b3.6-sparse-assembly-check.mjs` — Node.js v22.23.2
-- `scripts/lfea-bm4-cii-output-comparison-check.mjs` — throw new Error('BM4 unexpectedly BLOCKED at pre-flight; see lfea-bm4-inputxml-preflight-check.mjs.');
-- `scripts/lfea-bm4-inputxml-preflight-check.mjs` — AssertionError [ERR_ASSERTION]: BM4 pre-flight returned BLOCK
-- `scripts/lfea-bm4l-e75-weight-bending-evidence-check.mjs` — AssertionError [ERR_ASSERTION]: Expected authentic E75 gravity/bending receipt path
-- `scripts/lfea-bm4l-rx-source-topology-check.mjs` — TypeError [ERR_INVALID_ARG_TYPE]: The "paths[0]" argument must be of type string. Received undefined
-- `scripts/lfea-inputxml-model-health-source-check.mjs` — AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
-- `scripts/lfea-m047-bm4l-residual-invariant-check.mjs` — throw new Error('usage: node lfea-m047-bm4l-residual-invariant-check.mjs <authority.json> <bm4l-report.json>');
-- `scripts/lfea-m047-bm4l-t1-interval-authority-check.mjs` — if (!condition) throw new Error('M047_T1_INTERVAL_AUTHORITY_CHECK_FAILED: ${message}');
-- `scripts/lfea-m047-stage2-friction-check.mjs` — AssertionError [ERR_ASSERTION]: L5 execution hash changed
-- `scripts/lfea-m047-tee-rigid-thermal-check.mjs` — AssertionError [ERR_ASSERTION]: tee 20295 FLEXb in-plane: 1.3214165064292276 vs 1.323
-- `scripts/lfea-pipeline-analysis-check.mjs` — AssertionError [ERR_ASSERTION]: Expected "actual" to be strictly unequal to:
-- `scripts/lfea-pipeline-step-guidance-check.mjs` — AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
-- `scripts/lfea-piping-a0-baseline-check.mjs` — const err = new Error(message);
-- `scripts/lfea-piping-component-promotion-anti-drift-check.mjs` — Node.js v22.23.2
-- `scripts/lfea-piping-phase-findings-check.mjs` — const error = new Error(code);
-- `scripts/lfea-piping-phase6g-anti-drift-check.mjs` — AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
-- `scripts/lfea-piping-phase6h-anti-drift-check.mjs` — Node.js v22.23.2
-- `scripts/lfea-piping-release-readiness-check.mjs` — Node.js v22.23.2
-- `scripts/lfea-piping-wp3-runtime-bundle-assembler-check.mjs` — AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
-- `scripts/lfea-standalone-e2e-source-check.mjs` — AssertionError [ERR_ASSERTION]: The input did not match the regular expression /base: '\/Advanced_Analysis\/'/u. Input:
-- `scripts/lfea-standalone-native-execution-check.mjs` — AssertionError [ERR_ASSERTION]: The input did not match the regular expression /requireAxisCustody/u. Input:
-- `scripts/lfea-ui-continuity-check.mjs` — - active completed steps do not remain visibly current
-- `scripts/lfea-ui-numerical-custody-check.mjs` — AssertionError [ERR_ASSERTION]: governed pre-flight wrapper drifted during the UI-only program: src/workspace/linear-piping-inputxml-prefea.
-- `scripts/linear-piping-project-qualification-anti-drift-check.mjs` — Node.js v22.23.2
-- `scripts/qa-check.mjs` — ❌ Workspace E2E Tests failed.
-- `scripts/stagedjson-to-inputxml-vendor-check.mjs` — name: 'AssertionError'
-- `scripts/w10.11-pipe-solver-source-guard.mjs` — const err = new Error(message);
+### B. Evidence tools, not standalone checks (13)
 
-### BM2/BM3 benchmark files absent upstream (12)
+These need command-line inputs (receipts, ACCDB tables, logs) that CI
+workflows supplied in AA3:
 
-- `scripts/lfea-b3.25-bm2-inputxml-ingestion-check.mjs` — Error: ENOENT: no such file or directory, open 'D:\CodeE\LFEA\benchmarks\LFEA\BM2\Input_BM2.xml'
-- `scripts/lfea-b3.26-bm2-case-authority-check.mjs` — Error: ENOENT: no such file or directory, open 'D:\CodeE\LFEA\benchmarks\LFEA\BM2\Output_BM2.xml'
-- `scripts/lfea-b3.26-bm2-solve-comparison-check.mjs` — Error: ENOENT: no such file or directory, open 'D:\CodeE\LFEA\benchmarks\LFEA\BM2\Input_BM2.xml'
-- `scripts/lfea-b3.28-bm2-junction-surface-node-check.mjs` — Error: ENOENT: no such file or directory, open 'D:\CodeE\LFEA\benchmarks\LFEA\BM2\Input_BM2.xml'
-- `scripts/lfea-b3.29-bm2-bend-geometry-check.mjs` — Error: ENOENT: no such file or directory, open 'D:\CodeE\LFEA\benchmarks\LFEA\BM2\Input_BM2.xml'
-- `scripts/lfea-bm2-consolidated-latest-output-check.mjs` — Error: ENOENT: no such file or directory, open 'D:\CodeE\LFEA\benchmarks\LFEA\BM2\Output_BM2.xml'
-- `scripts/lfea-bm3-consolidated-latest-output-check.mjs` — Error: ENOENT: no such file or directory, open 'D:\CodeE\LFEA\benchmarks\LFEA\BM3\BM3_Output.xml'
-- `scripts/lfea-common-caesar-output-benchmark-policy-check.mjs` — Error: ENOENT: no such file or directory, open 'D:\CodeE\LFEA\benchmarks\LFEA\BM2\Output_BM2.xml'
-- `scripts/lfea-common-inputxml-restraint-correction-check.mjs` — Error: ENOENT: no such file or directory, open 'D:\CodeE\LFEA\benchmarks\LFEA\BM2\Input_BM2.xml'
-- `scripts/lfea-inputxml-load-diagnostics-check.mjs` — Error: ENOENT: no such file or directory, open 'D:\CodeE\LFEA\benchmarks\LFEA\BM2\Input_BM2.xml'
-- `scripts/lfea-m028-bm3-check.mjs` — Error: ENOENT: no such file or directory, open 'D:\CodeE\LFEA\benchmarks\LFEA\BM3\BM3_InputXML.xml'
-- `scripts/lfea-m029-bm3-hanger-check.mjs` — Error: ENOENT: no such file or directory, open 'D:\CodeE\LFEA\benchmarks\LFEA\BM3\BM3_InputXML.xml'
+- `lfea-bm4l-bend-retopology-source`, `lfea-bm4l-bend-tangent-source`
+- `lfea-bm4l-e75-*` (7)
+- `lfea-bm4l-rx-source-topology`
+- `lfea-m047-bm4l-residual-invariant`
+- `lfea-production-caesar-parity-evidence`
+- `lfea-s4-reducer-parity-evidence-file`
 
-### Evidence tool needing CLI arguments (not a standalone check) (10)
+### C. Engineering / authority drift upstream (21), for engineering review
 
-- `scripts/lfea-bm4l-bend-retopology-source-check.mjs` — if (!tablesPath) throw new TypeError('Usage: node scripts/lfea-bm4l-bend-retopology-source-check.mjs --tables <accdb-tables.json>');
-- `scripts/lfea-bm4l-bend-tangent-source-check.mjs` — if (!tablesPath) throw new TypeError('Usage: node scripts/lfea-bm4l-bend-tangent-source-check.mjs --tables <accdb-tables.json>');
-- `scripts/lfea-bm4l-e75-matrix-evidence-check.mjs` — AssertionError [ERR_ASSERTION]: Usage: node scripts/lfea-bm4l-e75-matrix-evidence-check.mjs <receipt.json>
-- `scripts/lfea-bm4l-e75-pressure-boundary-check.mjs` — AssertionError [ERR_ASSERTION]: Missing --accdb
-- `scripts/lfea-bm4l-e75-pressure-research-evidence-check.mjs` — AssertionError [ERR_ASSERTION]: Usage: --source-section <pinned-receipt.json> --out <hypothesis.json>
-- `scripts/lfea-bm4l-e75-section-load-evidence-check.mjs` — AssertionError [ERR_ASSERTION]: Usage: node scripts/lfea-bm4l-e75-section-load-evidence-check.mjs <receipt.json>
-- `scripts/lfea-bm4l-e75-w-neighborhood-qualification-check.mjs` — AssertionError [ERR_ASSERTION]: Use --experiment --full-report --weight-bending --out
-- `scripts/lfea-bm4l-e75-w-system-reference-check.mjs` — AssertionError [ERR_ASSERTION]: Use --experiment <json> --rotation-budget <json> --out <json>
-- `scripts/lfea-production-caesar-parity-evidence-check.mjs` — throw new TypeError('Usage: --log <capture.log> --accdb <BM4_L.ACCDB> --out <measurement.json>');
-- `scripts/lfea-s4-reducer-parity-evidence-file-check.mjs` — S4 reducer parity evidence path is required.
+These are in protected domains (solver, recovery, B31 code engine, benchmark
+authority, result custody). **Nothing here was changed to make a check pass.**
+Each failure means AA3's source moved after the check or its pinned
+evidence was written. Someone has to decide which side is right.
 
-### Needs git history / remote (7)
+| Check | Failure | Likely meaning |
+|---|---|---|
+| `lfea-bm4-inputxml-preflight` | BM4 pre-flight returns `BLOCK` | Pre-flight became stricter, or a BM4 regression. Also blocks `lfea-bm4-cii-output-comparison` and `lfea-pipeline-analysis`. |
+| `lfea-b3.14-appendix-s-example3` | `frameElementInput is missing pressure` | Frame-element contract now requires `pressure`; the fixture predates it |
+| `lfea-b3.4-recovery` | Expected exception not thrown | Recovery is more permissive than the check expects |
+| `lfea-b3.23-reducer-condensation` | Candidate reducer authority is reachable from the production consumer | Reducer augmentation was promoted to production without updating the guard |
+| `lfea-b3.1-source-guard` | Section geometry read in the frame element | Source changed against the B-3.1 authority rule |
+| `lfea-b3.6-sparse-assembly` | Qualification no longer uses `sparseMultiply` | Solver refactor |
+| `lfea-m047-tee-rigid-thermal` | Tee 20295 FLEXb in-plane 1.3214 vs 1.323 | 0.1% numeric drift against the reference |
+| `lfea-m047-stage2-friction` | L5 execution hash changed | Pinned run hash out of date, or behaviour changed |
+| `lfea-m047-bm4l-t1-interval-authority` | Rotation zero gate unchanged | Interval authority evidence out of date |
+| `lfea-inputxml-model-health-source` | Extra `accdb-source-binding.js` in the source set | ACCDB binding added after the pin |
+| `lfea-standalone-native-execution` | `requireAxisCustody` no longer present | Execution-authority refactor |
+| `lfea-ui-numerical-custody` | `linear-piping-inputxml-prefea.js` blob hash drifted | Pre-flight wrapper edited after the UI-only freeze |
+| `linear-piping-project-qualification-anti-drift`, `lfea-piping-release-readiness` | `RELEASE_LEDGER_MUTATION` in `governance-recording.js` | Release ledger code edited after the freeze |
+| `lfea-piping-phase6g/6h-anti-drift`, `lfea-piping-wp3-runtime-bundle-assembler` | Bundle package-id mismatch / missing marker | Runtime bundle schema moved |
+| `lfea-piping-component-promotion-anti-drift` | `pressureCorrectionApplied !== false` not found | Component-promotion code moved |
+| `lfea-pipeline-step-guidance` | Step state `CURRENT` vs expected `COMPLETE` | UI state semantics changed |
 
-- `scripts/lfea-004-source-guard.mjs` — <ref *1> Error: spawnSync git ENOENT
-- `scripts/lfea-005-source-guard.mjs` — <ref *1> Error: spawnSync git ENOENT
-- `scripts/lfea-006-source-guard.mjs` — <ref *1> Error: spawnSync git ENOENT
-- `scripts/lfea-piping-phase6e-anti-drift-check.mjs` — Error: ENOENT: no such file or directory, open 'D:\CodeE\LFEA\.github\workflows\lfea-piping-runtime-release-certification.yml'
-- `scripts/lfea-piping-phase6i-anti-drift-check.mjs` — Error: ENOENT: no such file or directory, open 'D:\CodeE\LFEA\.github\workflows\lfea-piping-independent-closure-review.yml'
-- `scripts/lfea-piping-phase6i-governance-recording-anti-drift-check.mjs` — Error: ENOENT: no such file or directory, open 'D:\CodeE\LFEA\.github\workflows\lfea-piping-governance-recording-preparation.yml'
-- `scripts/lfea-piping-phase6i-independent-closure-anti-drift-check.mjs` — Error: ENOENT: no such file or directory, open 'D:\CodeE\LFEA\.github\workflows\lfea-piping-independent-closure-review.yml'
+## Modules not wired into the standalone app
 
-### Needs AA3 combined build output (1)
+See `docs/UNWIRED_MODULES.md`:
 
-- `scripts/lfea-bm4l-built-asset-check.mjs` — Error: ENOENT: no such file or directory, scandir 'D:\CodeE\LFEA\dist\assets'
+- 451 modules are reached from `src/lfea/main.js`.
+- 275 more are exercised by checks.
+- 46 are neither. These are mostly AA3's LFEA pipeline screens, the
+  candidates to either wire into `src/lfea` or delete.

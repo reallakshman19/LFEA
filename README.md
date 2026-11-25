@@ -51,3 +51,21 @@ check-by-check comparison against unmodified AA3.
   repository `reallaksh19/Advanced_Analysis` on purpose — that is provenance, not config.
 - Some checks assert wiring inside AA3's combined app (`src/main.js`,
   `workspace-layout.js`) and cannot pass here. See `EXTRACTION_REPORT.md`.
+
+## Checks and CI
+
+```bash
+npm run check:ci          # the 257 checks that pass on a clean checkout
+npm run check:ci-browser  # the one check that launches Chromium
+npm run lint
+npx playwright test e2e/lfea-standalone.spec.js
+```
+
+`.github/workflows/ci.yml` runs all of the above on push and PR.
+`.github/workflows/pages.yml` deploys `dist-lfea` to GitHub Pages; it is
+off until the repository variable `ENABLE_PAGES=true` is set (see the comment
+in the workflow).
+
+The 53 checks that still fail (all also fail in unmodified AA3) are
+classified in `EXTRACTION_REPORT.md`. Modules that the standalone app does
+not use yet are listed in `docs/UNWIRED_MODULES.md`.

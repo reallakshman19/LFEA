@@ -14,6 +14,8 @@ export function lfeaCaseSelectionBrowserStorage(windowRef) {
 
 function validText(value) {
   return typeof value === 'string' && value.trim().length > 0
+    // Rejecting control characters is the point of this check.
+    // eslint-disable-next-line no-control-regex
     && value.length <= 256 && !/[\u0000-\u001f]/u.test(value);
 }
 

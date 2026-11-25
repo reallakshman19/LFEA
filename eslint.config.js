@@ -13,7 +13,13 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 export default defineConfig([
   globalIgnores([
     'dist',
+    'dist-lfea',
     'node_modules',
+    // Third-party Pyodide runtime vendored for the StagedJSON→InputXML worker.
+    'public/vendor/**',
+    'scripts/retired/**',
+    'playwright-report/**',
+    'test-results/**',
     'Docs/**',
     'public/spl2-bundle/**',
     'src/gc3d/**',
