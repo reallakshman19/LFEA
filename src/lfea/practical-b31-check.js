@@ -138,9 +138,11 @@ function publishPractical(runtime, derived, allowables, note) {
 
 /** "B31J SIFs at N reducer end(s) and M tee end(s) (LFEA_PRACTICAL_B31_FITTINGS); K fitting end(s) at unity". */
 function fittingText(fittings) {
-  if (!fittings.reducerEnds && !fittings.teeEnds && !fittings.unityFittingEnds) return '';
+  if (!fittings.reducerEnds && !fittings.teeEnds && !fittings.weldoletEnds && !fittings.unityFittingEnds) return '';
+  const weldolets = fittings.weldoletEnds
+    ? `; B31.3 Table D300 SIFs at ${fittings.weldoletEnds} weldolet run end(s), LFEA default, no B31J weldolet equations` : '';
   const unity = fittings.unityFittingEnds ? `; ${fittings.unityFittingEnds} fitting end(s) not covered, unity factors` : '';
-  return `B31J SIFs at ${fittings.reducerEnds} reducer end(s) and ${fittings.teeEnds} welding-tee end(s) (${LFEA_PRACTICAL_FITTING_SOURCE})${unity}`;
+  return `B31J SIFs at ${fittings.reducerEnds} reducer end(s) and ${fittings.teeEnds} welding-tee end(s) (${LFEA_PRACTICAL_FITTING_SOURCE})${weldolets}${unity}`;
 }
 
 /** After each Run: repeat the code check if the user has already entered Sc/Sh. */

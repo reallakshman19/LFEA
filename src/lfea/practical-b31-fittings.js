@@ -3,6 +3,7 @@ import { sealStressFactorSet } from '../core/linear-fea-b31-code-engine/index.js
 import {
   FACTOR_CALCULATION_REQUEST_SCHEMA,
   calculateB31Factors,
+  calculateLegacyWeldedOnFittingFactors,
   reducerGeometry,
   weldingTeeGeometry,
 } from '../core/linear-fea-b31-factor-calculator/index.js';
@@ -23,10 +24,21 @@ import { declaredLengthToSiFactor } from '../core/linear-piping-analysis-consume
  *   legs). In-plane / out-of-plane follow the element's local axes when one is
  *   normal to the tee plane; otherwise the larger factor is used both ways.
  *
- * Other fitting types (weldolets, sweepolets, fabricated tees ...) keep
- * unity factors and are counted. Nothing here blocks.
+ * - A run end at a CAESAR weldolet (SIF TYPE 5) gets a labelled default:
+ *   LFEA has no B31J weldolet equations, so the B31.3 Table D300 welded-on
+ *   fitting SIF (h = 3.3 T / r2 of the run pipe) is used in and out of plane,
+ *   as the sustained index too (as for B31J tee runs); torsion and axial 1.
+ *   A weldolet branch end keeps unity.
+ *
+ * Other fitting types (sweepolets, fabricated tees ...) keep unity factors
+ * and are counted. Nothing here blocks.
  */
 export const LFEA_PRACTICAL_FITTING_SOURCE = 'LFEA_PRACTICAL_B31_FITTINGS';
+export const LFEA_WELDOLET_DEFAULT = Object.freeze({
+  standard: 'ASME_B31_3_2018_APPENDIX_D',
+  ruleId: 'TABLE_D300_WELDED_ON_FITTING_RUN',
+  label: 'NOT ENGINEER-REVIEWED (LFEA default: B31.3 Table D300 welded-on fitting SIF at weldolet run ends; LFEA has no B31J weldolet equations)',
+});
 export const LFEA_PRACTICAL_FITTING_PROFILE = 'B31_3_2022_B31J_2017';
 export const LFEA_REDUCER_DEFAULTS = Object.freeze({
   coneAngle: 'when ALPHA is 0: half-angle of the cone from the element, atan((D1 - D2) / 2 / L)',
@@ -36,6 +48,7 @@ export const LFEA_REDUCER_DEFAULTS = Object.freeze({
 });
 export const LFEA_FITTING_TARGET_KINDS = Object.freeze(['TEE', 'REDUCER']);
 const CAESAR_WELDING_TEE = 3;
+const CAESAR_WELDOLET = 5;
 const AXIS_ALIGNED = 0.999;
 const SAME_SIZE = 0.01;
 const MAPPING = Object.freeze({ inPlaneField: 'my', outOfPlaneField: 'mz' });
@@ -93,9 +106,11 @@ export function lfeaB31EndFittings(preFlight) {
     }
     for (const [end, node] of [['I', binding.startNodeId], ['J', binding.endNodeId]]) {
       if (!teeTypes.has(node)) continue;
-      const tee = teeFactors(binding, end, node, teeTypes.get(node));
+      const weldolet = teeTypes.get(node) === CAESAR_WELDOLET;
+      const tee = weldolet ? weldoletFactors(binding, end, node) : teeFactors(binding, end, node, teeTypes.get(node));
       const key = `${binding.elementId}:${end}`;
-      if (tee.factorSet) fittings.set(key, { kind: 'WELDING_TEE', stressFactorSet: tee.factorSet, endSection: null, note: tee.note });
+      const kind = weldolet ? 'WELDOLET' : 'WELDING_TEE';
+      if (tee.factorSet) fittings.set(key, { kind, stressFactorSet: tee.factorSet, endSection: null, note: tee.note });
       else unsupported.set(key, tee.note);
     }
   }
@@ -167,10 +182,7 @@ export function lfeaB31EndFittings(preFlight) {
     const legs = at(node);
     if (legs.length !== 3) return { factorSet: null, note: `${label}: ${legs.length} legs, not a three-leg tee, unity factors` };
     const directions = legs.map((row) => outward(row, node));
-    let runPair = [0, 1];
-    for (const pair of [[0, 2], [1, 2]]) {
-      if (dot(directions[pair[0]], directions[pair[1]]) < dot(directions[runPair[0]], directions[runPair[1]])) runPair = pair;
-    }
+    const runPair = mostOpposite(directions);
     const branchIndex = [0, 1, 2].find((index) => !runPair.includes(index));
     const run = section(legs[runPair[0]]);
     const declaredBranch = section(legs[branchIndex]);
@@ -207,6 +219,60 @@ export function lfeaB31EndFittings(preFlight) {
       note: `welding tee at ${node}, ${leg.toLowerCase()}${mapping ? '' : ' (tee plane off the local axes: larger factor both ways)'}`,
     };
   }
+
+  /** Weldolet run end: two collinear legs (branch not modelled), or the run pair of three. */
+  function weldoletFactors(binding, end, node) {
+    const label = `weldolet at ${node}`;
+    const legs = at(node);
+    const directions = legs.map((row) => outward(row, node));
+    const run = legs.length === 2 || legs.length === 3 ? mostOpposite(directions) : null;
+    if (!run || dot(directions[run[0]], directions[run[1]]) > -AXIS_ALIGNED) {
+      return { factorSet: null, note: `${label}: ${legs.length} legs without a straight run, unity factors` };
+    }
+    if (!run.includes(legs.indexOf(binding))) return { factorSet: null, note: `${label}: branch end, unity factors` };
+    const pipe = section(binding);
+    const { displacementSifs, flexibilityCharacteristic } = calculateLegacyWeldedOnFittingFactors({
+      runOuterDiameter: pipe.outerDiameter, runWallThickness: pipe.wallThickness,
+    });
+    return {
+      factorSet: weldoletFactorSet(binding.elementId, end, node, pipe, displacementSifs),
+      note: `${label}, run (h ${flexibilityCharacteristic.toFixed(3)}, i ${displacementSifs.inPlaneBending.toFixed(3)}; ${LFEA_WELDOLET_DEFAULT.label})`,
+    };
+  }
+}
+
+/** Indices of the two most nearly opposite directions. */
+function mostOpposite(directions) {
+  let pair = [0, 1];
+  for (const next of [[0, 2], [1, 2]]) {
+    if (directions.length < 3) break;
+    if (dot(directions[next[0]], directions[next[1]]) < dot(directions[pair[0]], directions[pair[1]])) pair = next;
+  }
+  return pair;
+}
+
+function weldoletFactorSet(elementId, end, node, pipe, sifs) {
+  const { standard, ruleId, label } = LFEA_WELDOLET_DEFAULT;
+  const source = `${standard} ${ruleId}; ${label}`;
+  const directional = (values) => Object.freeze(Object.fromEntries(Object.entries(values)
+    .map(([key, value]) => [key, Object.freeze({ value, source })])));
+  const factors = directional(sifs);
+  return sealStressFactorSet({
+    schema: 'fea-b31-stress-factor-set/v1',
+    factorSetId: `${elementId}.WELDOLET_RUN_${end}.${LFEA_PRACTICAL_FITTING_SOURCE}`,
+    componentId: elementId,
+    sourceIdentity: Object.freeze({
+      standard, edition: '2018', ruleId, sourceRevision: 'TABLE_D300',
+      sourceSemanticHash: semanticHash({ standard, ruleId, node, outerDiameter: pipe.outerDiameter, wallThickness: pipe.wallThickness }),
+    }),
+    applicability: Object.freeze({ status: 'WITHIN_RANGE', ruleId, evaluatedBy: LFEA_PRACTICAL_FITTING_SOURCE }),
+    momentDirectionMapping: { ...MAPPING },
+    // In = out of plane, so the plane mapping does not matter. Sustained index
+    // = i at the run, as for B31J welding-tee runs (axial and torsion 1).
+    sustainedIndices: factors, occasionalIndices: factors, displacementSifs: factors,
+    userOverride: null,
+    semanticHash: '',
+  });
 }
 
 /** Counts for the status line and the sealed check reason. */
@@ -215,6 +281,7 @@ export function lfeaFittingSummary(found) {
   return Object.freeze({
     reducerEnds: count('REDUCER'),
     teeEnds: count('WELDING_TEE'),
+    weldoletEnds: count('WELDOLET'),
     unityFittingEnds: found.unsupported.size,
     semanticHash: semanticHash([...found.fittings].map(([key, row]) => [key, row.stressFactorSet.semanticHash])),
   });

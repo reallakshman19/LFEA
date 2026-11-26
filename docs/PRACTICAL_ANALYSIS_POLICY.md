@@ -27,7 +27,7 @@ instead:
 | B31 code check: `GOVERNED_CODE_PROFILE_REQUIRED`, `GOVERNED_EDITION_DATASET_REQUIRED` (pasted sealed JSON) | The Code tab takes two numbers, Sc and Sh in MPa, and **Run B31.3 code check** builds everything else (`src/lfea/practical-b31-check.js`). That means one SUSTAINED check per straight-pipe element end in each run weight case, unity stress factors on straight pipe, W = 1, Sc at 70 °F and Sh at the material's design temperature. It is staged, accepted as `NOT ENGINEER-REVIEWED (LFEA user allowables)` and published through the governed chain. Later Runs repeat it with the same values. | Results, B31 panel, "Code check basis": "Allowables entered by user (Sc=…;Sh=…) … NOT ENGINEER-REVIEWED." |
 | One-way supports (CAESAR "+Y" etc.) solved as two-way, so a support could pull the pipe (`GENERIC_APPROX_UNILATERAL_LINEARIZED`) | On by default: active-set iteration per load case (`src/lfea/unilateral-active-set.js`, `sourceId: LFEA_UNILATERAL_ACTIVE_SET_ITERATION`, reviewer `NOT ENGINEER-REVIEWED (LFEA unilateral active set)`). Solve; release every rigid one-way support whose reaction opposes its only direction; re-solve; re-engage any whose pipe moves back into it; stop when the set is stable, at most 20 solves per case. The record (per case: status, solve count, lifted-off supports, history) is sealed into the raw execution batch hash. A lifted-off support reports a reaction of exactly zero, so derived supports show it as zero. It never blocks: if a case cycles, hits the cap, or a release cannot be solved (for example a mechanism), the last solved state is published and the status says so. One-way springs stay linear and are counted. | Results, "One-way and gapped support basis": "One-way supports solved by active-set iteration (LFEA_UNILATERAL_ACTIVE_SET_ITERATION): … lifted off (nodes) … NOT ENGINEER-REVIEWED". The support basis lists the lifted-off supports. |
 | Gapped supports (CAESAR `GAP` > 0 on a guide or limit stop) treated as closed (`GENERIC_APPROX_GAP_CLOSED`) | On by default, in the same active-set iteration and record. A gap is a contact with a distance g: one side for a one-way gapped support, both sides for a two-way guide or limit. The first solve sees every gap open. An open gap closes when the pipe moves past g, and the solver then holds the pipe at exactly g (a constraint offset, `SOLVER_CONSTRAINT_OFFSET_INVALID` if malformed). A closed gap opens again when its stop pulls. Open gaps report zero. A gap whose length unit cannot be resolved stays closed and is counted. | Same "One-way and gapped support basis" line: "… gaps N closed (node DOF ±g mm) / M open …". |
-| B31 check refused anything but exact straight pipe, so reducers and tees went unchecked | Reducer and tee elements are B31 targets too; bend arcs still are not (`src/lfea/practical-b31-fittings.js`, `sourceId: LFEA_PRACTICAL_B31_FITTINGS`, B31.3 2022 + B31J 2017 factors). **Reducer** (a CAESAR reducer record): both ends get the B31J Table 1-1 reducer SIF. The `DIAMETER2` end is checked with that size (the matching-pipe rule), and that is the only case where an end section may differ from the element's OD. CAESAR's `ALPHA`, `R2` and `L2` are used where given. Where they are 0, labelled defaults stand in: cone half-angle from the element geometry, r2 = 0.1·D2, L2 = 0.1·L, body wall = T1. **Welding tee** (CAESAR SIF type 3, three legs): B31J run or branch SIF, where the run is the two most nearly opposite legs. In-plane and out-of-plane follow the element's local axes; if neither axis is normal to the tee plane, the larger factor is used both ways. Tee quality is `UNVERIFIED`, so no 1.26 reduction. Other fittings stay at i = 1 and are counted. Never blocks. | Code check status line: "B31J SIFs at N reducer end(s) and M welding-tee end(s) (LFEA_PRACTICAL_B31_FITTINGS); K fitting end(s) not covered, unity factors". |
+| B31 check refused anything but exact straight pipe, so reducers and tees went unchecked | Reducer and tee elements are B31 targets too; bend arcs still are not (`src/lfea/practical-b31-fittings.js`, `sourceId: LFEA_PRACTICAL_B31_FITTINGS`, B31.3 2022 + B31J 2017 factors). **Reducer** (a CAESAR reducer record): both ends get the B31J Table 1-1 reducer SIF. The `DIAMETER2` end is checked with that size (the matching-pipe rule), and that is the only case where an end section may differ from the element's OD. CAESAR's `ALPHA`, `R2` and `L2` are used where given. Where they are 0, labelled defaults stand in: cone half-angle from the element geometry, r2 = 0.1·D2, L2 = 0.1·L, body wall = T1. **Welding tee** (CAESAR SIF type 3, three legs): B31J run or branch SIF, where the run is the two most nearly opposite legs. In-plane and out-of-plane follow the element's local axes; if neither axis is normal to the tee plane, the larger factor is used both ways. Tee quality is `UNVERIFIED`, so no 1.26 reduction. **Weldolet** (CAESAR SIF type 5) run ends: B31.3 Table D300 welded-on fitting SIF, i = 0.9 / h^(2/3), h = 3.3 T / r2, in and out of plane and as the sustained index; torsion and axial 1 (`LFEA_WELDOLET_DEFAULT`, NOT ENGINEER-REVIEWED: LFEA has no B31J weldolet equations). Branch ends stay at 1. Other fittings stay at i = 1 and are counted. Never blocks. | Code check status line: "B31J SIFs at N reducer end(s) and M welding-tee end(s) (LFEA_PRACTICAL_B31_FITTINGS); B31.3 Table D300 SIFs at W weldolet run end(s), LFEA default, no B31J weldolet equations; K fitting end(s) not covered, unity factors". |
 | Support friction (CAESAR `FRIC_COEF`) | **Not applied yet** (`GENERIC_APPROX_FRICTION_IGNORED`): supports slide freely. The record counts the friction coefficients not applied. | Same line: "N support friction coefficient(s) not applied: those supports slide freely." |
 
 Every assumed value stays in the sealed records (authority IDs, source IDs,
@@ -132,8 +132,10 @@ Comparison with CAESAR SUS (W+P), checked by
 | BM4, two-way supports (before 2026-11-26) | 116 | 112 | 55 | 103 | 29.7% |
 | BM4, one-way active set | 116 | 112 | 56 | 102 | 29.7% |
 | BM4, one-way + gaps, no friction | 116 | 112 | 57 | 99 | 29.7% |
-| BM4, + reducer and tee elements checked (now) | 126 of 128 | 122 | **58** | **107** | 29.7% |
-| **BM4_L (ACCDB) vs CASE 6, friction-free (now)** | **128** | **128** | **106** | **128** | **4.7%** |
+| BM4, + reducer and tee elements checked | 126 of 128 | 122 | 58 | 107 | 29.7% |
+| BM4, + weldolet run ends (now) | 126 of 128 | 122 | **62** | **109** | 29.7% |
+| BM4_L (ACCDB) vs CASE 6, friction-free, reducers and tees | 128 | 128 | 106 | 128 | 4.7% |
+| **BM4_L, + weldolet run ends (now)** | **128** | **128** | **112** | **128** | **3.6%** |
 
 Reducer and tee elements (2026-11-26). The check now covers reducer and tee
 elements, not just straight pipe (`LFEA_PRACTICAL_B31_FITTINGS`, see the
@@ -148,8 +150,23 @@ CAESAR's reducer records, which the BM4 InputXML export drops.
     and 1.000 at 20160.
   - Reducer SIFs are within −10% to +12% of CAESAR's, because CAESAR left r2
     and L2 at 0 and LFEA's labelled defaults stand in.
-  - The 4.7% rows are weldolet run ends: CAESAR uses SIF 1.527 there, LFEA
-    uses 1.
+  - The 4.7% rows were weldolet run ends: CAESAR uses SIF 1.527 there, LFEA
+    used 1. See the weldolet note below.
+
+Weldolet run ends (2026-11-26). LFEA has no B31J weldolet equations, and no
+public copy of them was found. So a labelled default stands in
+(`LFEA_WELDOLET_DEFAULT`, "NOT ENGINEER-REVIEWED"): the B31.3 Appendix D
+Table D300 branch welded-on fitting SIF, i = 0.9 / h^(2/3) with
+h = 3.3 T / r2 of the run pipe, in and out of plane. It is also the sustained
+index, as for B31J tee runs, and torsion and axial stay 1. Against CAESAR's
+B31J values on BM4_L it is 1.2–2.4% low (1.510 vs 1.527 at 168.3 × 10.97 mm,
+1.482 vs 1.518 at 273 × 18.26 mm), where unity was 34–35% low. CAESAR also
+gives a torsional SIF of about 1.72 there; LFEA uses 1. All 8 BM4_L weldolet
+ends are run ends of weldolets whose branch is not modelled. A weldolet
+branch end keeps unity.
+
+- BM4_L: within 1% goes from 106 to 112; worst from 4.7% to 3.6%.
+- BM4 InputXML: within 1% from 58 to 62, within 5% from 107 to 109.
 - BM4 InputXML: 10 tee-element ends are added (8 within 5%). Element
   20150-20160 has no CAESAR row, because CAESAR splits it at 20161. The worst
   29.7% is reducer 22000-22010 J: with no reducer record, LFEA checks it as
@@ -185,8 +202,10 @@ Known B31 limits, all stated in the status line:
 - Each check set covers one material, the one with the most elements.
 - Bends are not checked yet; bend-arc elements stay outside the native
   boundary. Straight pipe, reducer and tee elements are checked.
-- Weldolets, sweepolets, fabricated tees and other fittings the B31J factor
-  calculator does not implement keep i = 1. The status line counts them.
+- Weldolet run ends use the Table D300 default above, not B31J, and weldolet
+  branch ends keep i = 1.
+- Sweepolets, fabricated tees and other fittings the B31J factor calculator
+  does not implement keep i = 1. The status line counts them.
 - BM4 runs only its weight case unless W+P is requested.
 
 Derived supports mirror the constraints the final active-set solve used. A
