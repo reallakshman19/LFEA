@@ -153,6 +153,10 @@ CAESAR's reducer records, which the BM4 InputXML export drops.
     and L2 at 0 and LFEA's labelled defaults stand in.
   - The 4.7% rows were weldolet run ends: CAESAR uses SIF 1.527 there, LFEA
     used 1. See the weldolet note below.
+- BM4 InputXML: 10 tee-element ends are added (8 within 5%). Element
+  20150-20160 has no CAESAR row, because CAESAR splits it at 20161. The worst
+  29.7% is reducer 22000-22010 J: with no reducer record, LFEA checks it as
+  plain 168.3 mm pipe. BM4_L shows that same end at 0.9%.
 
 Weldolet run ends (2026-11-26). LFEA has no B31J weldolet equations, and no
 public copy of them was found. So a labelled default stands in
@@ -199,12 +203,17 @@ The thermal increment (L5 − L6) displacement now matches CAESAR: median ratio
 the L5 values still failing have small CAESAR values (rotations under
 1e-4 rad, moments under 50 N·m). The largest real ones are an axial force of
 550 N vs CAESAR's 446 N along 20160–20295 and moments of about 244 vs 304 N·m
-near 22130–22190. That script reports and does not gate: it has no pass
-marks yet.
-- BM4 InputXML: 10 tee-element ends are added (8 within 5%). Element
-  20150-20160 has no CAESAR row, because CAESAR splits it at 20161. The worst
-  29.7% is reducer 22000-22010 J: with no reducer record, LFEA checks it as
-  plain 168.3 mm pipe. BM4_L shows that same end at 0.9%.
+near 22130–22190.
+
+Pass marks (2026-11-26). The script now fails CI if BM4_L agrees less with
+CAESAR than this (`PASS_MARKS` in the script). They are set at the values
+measured above and are only ever raised:
+
+| Case | Values within 10% | Displacements within 10% | Support forces within 10% | Median error at most |
+|---|---|---|---|---|
+| L2, W | 96.7% | 96.5% | 98.8% | 0.37% |
+| L6, W+P1 | 95.8% | 96.5% | 100% | 0.36% |
+| L5, W+T1+P1 | 93.0% | 93.8% | 100% | 0.57% |
 
 With gaps, the check holds BM4 at 57 within 1%, 99 within 5% and a worst case
 of 29.7%. Three more rows cross 5%. They are near supports that slide here but
