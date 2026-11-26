@@ -61,7 +61,7 @@ function render(
 
   const batch = resultsState.results;
   const activeSet = executionState?.execution?.unilateralActiveSet ?? null;
-  const basisTable = factTable(doc, [['One-way support basis', lfeaUnilateralActiveSetLabel(activeSet)]]);
+  const basisTable = factTable(doc, [['One-way and gapped support basis', lfeaUnilateralActiveSetLabel(activeSet)]]);
   basisTable.dataset.role = 'lfea-results-unilateral-basis';
   basisTable.dataset.status = activeSet?.status ?? 'NONE';
   section.append(basisTable);

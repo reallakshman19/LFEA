@@ -68,21 +68,40 @@ for (const [caseId, section] of [['IXP-WP', sustained], ['IXP-WPT', operating]])
 }
 
 // ---------------------------------------------------------------------------
+// Finding 1b: gapped supports close exactly where CAESAR closes them.
+// ---------------------------------------------------------------------------
+// BM4 has six gapped guides/limit stops. Since 2026-11-26 the active set opens
+// them and closes the ones the pipe reaches. In OPE three close, and the pipe
+// sits at the gap distance CAESAR reports there (20390 DX -5, 21480 DX +10,
+// 21640 DX -10 mm). In SUS none is reached.
+const closedGaps = (section) => section.unilateralActiveSet.gaps
+  .filter((row) => row.state !== 'OPEN').map((row) => `${row.nodeId}:${row.dof}:${row.state}`).sort();
+assert.equal(sustained.unilateralActiveSet.gaps.length, 6, 'BM4 gapped supports found');
+assert.deepEqual(closedGaps(sustained), [], 'BM4 SUS: no gap closes');
+assert.deepEqual(closedGaps(operating), ['20390:UX:CLOSED-', '21480:UX:CLOSED+', '21640:UX:CLOSED-'], 'BM4 OPE closed gaps');
+for (const node of ['20390', '21480', '21640']) {
+  const row = operating.displacement.matched.find((entry) => entry.nodeId === node);
+  assert.ok(Math.abs(row.UX.ours - row.UX.cii) < 0.01, `BM4 OPE ${node} DX ${row.UX.ours} mm sits at CAESAR's ${row.UX.cii} mm`);
+}
+
+// ---------------------------------------------------------------------------
 // Finding 2: per-node agreement, and how far it degrades.
 // ---------------------------------------------------------------------------
 // Re-measured 2026-11-26 with the active set: SUS 21/30 (unchanged) and OPE
 // 17/30 (was 15) within 5% where CAESAR is nonzero; counting the supports both
 // solvers lift off to exactly zero, SUS 23/30 (was 21) and OPE 21/30 (was 15).
+// Re-measured 2026-11-26 with gapped supports: SUS 21/30 and 23/30 unchanged;
+// OPE 21/30 within 5% (was 17) and 25/30 counting lift-offs (was 21).
 const withinFivePercent = (section) => section.restraint.matched
   .filter((row) => row.UY.percentDifference !== null && Math.abs(row.UY.percentDifference) < 5).length;
 const sustainedWithin = withinFivePercent(sustained);
 const operatingWithin = withinFivePercent(operating);
 assert.ok(sustainedWithin >= 21, `BM4 SUS: only ${sustainedWithin}/30 restraints within 5% of CAESAR`);
-assert.ok(operatingWithin >= 17, `BM4 OPE: only ${operatingWithin}/30 restraints within 5% of CAESAR`);
+assert.ok(operatingWithin >= 21, `BM4 OPE: only ${operatingWithin}/30 restraints within 5% of CAESAR`);
 const sustainedAgree = sustainedWithin + sustained.restraint.zeroReactionMatches.length;
 const operatingAgree = operatingWithin + operating.restraint.zeroReactionMatches.length;
 assert.ok(sustainedAgree >= 23, `BM4 SUS: only ${sustainedAgree}/30 restraints within 5% or lifted off with CAESAR`);
-assert.ok(operatingAgree >= 21, `BM4 OPE: only ${operatingAgree}/30 restraints within 5% or lifted off with CAESAR`);
+assert.ok(operatingAgree >= 25, `BM4 OPE: only ${operatingAgree}/30 restraints within 5% or lifted off with CAESAR`);
 
 // ---------------------------------------------------------------------------
 // Finding 3: displacements are systematically UNDER-predicted.
@@ -99,8 +118,14 @@ const operatingRatio = operating.displacement.totalAbsoluteTranslation.ratio;
 // vertical movement now matches CAESAR (sum |DY| ratio 0.997); the remaining
 // OPE shortfall is horizontal, at gapped guides CAESAR leaves open
 // (GENERIC_APPROX_GAP_CLOSED), e.g. node 20030 DZ -25 mm in CAESAR, 0 here.
-assert.ok(sustainedRatio > 0.97 && sustainedRatio < 1.03, `BM4 SUS displacement ratio ${sustainedRatio.toFixed(4)} moved outside its recorded band`);
-assert.ok(operatingRatio > 0.72 && operatingRatio < 0.86, `BM4 OPE displacement ratio ${operatingRatio.toFixed(4)} moved outside its recorded band`);
+// Re-measured 2026-11-26 with gapped supports: OPE 0.8960 (was 0.7615), the
+// guides CAESAR leaves open now open here too. SUS 1.2381 (was 1.0014): with
+// its gaps open and no friction yet, the pipe slides sideways where CAESAR's
+// CASE 17 holds it by friction (e.g. 20030 DZ -0.58 mm here, 0.00 in CAESAR,
+// whose support there carries FX -2086 N of friction). Recorded, not tuned: it
+// moves back toward 1.0 once support friction is applied.
+assert.ok(sustainedRatio > 1.20 && sustainedRatio < 1.28, `BM4 SUS displacement ratio ${sustainedRatio.toFixed(4)} moved outside its recorded band`);
+assert.ok(operatingRatio > 0.86 && operatingRatio < 0.93, `BM4 OPE displacement ratio ${operatingRatio.toFixed(4)} moved outside its recorded band`);
 
 // ---------------------------------------------------------------------------
 // Finding 4: the algebraic residual gate blocks a solution CAESAR confirms.
@@ -140,6 +165,7 @@ console.log(JSON.stringify({
     displacementRatio: Number(sustainedRatio.toFixed(4)),
     unilateralTensionSupports: sustained.restraint.unilateralTensionNodes.length,
     liftedOff: sustained.unilateralActiveSet.liftedOffNodes,
+    closedGaps: closedGaps(sustained),
     executionStatus: sustained.executionStatus,
   },
   operating: {
@@ -149,6 +175,7 @@ console.log(JSON.stringify({
     displacementRatio: Number(operatingRatio.toFixed(4)),
     unilateralTensionSupports: operating.restraint.unilateralTensionNodes.length,
     liftedOff: operating.unilateralActiveSet.liftedOffNodes,
+    closedGaps: closedGaps(operating),
     executionStatus: operating.executionStatus,
   },
 }, null, 2));

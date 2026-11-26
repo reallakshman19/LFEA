@@ -135,6 +135,7 @@ export function buildBm4CiiComparison() {
         status: activeSetCase.status,
         solveCount: activeSetCase.solveCount,
         liftedOffNodes: activeSetCase.liftedOff.map((row) => row.sourceNodeId),
+        gaps: activeSetCase.gaps.map((row) => ({ nodeId: row.sourceNodeId, dof: row.dof, gapMm: row.gap * 1000, state: row.state })),
       },
       diagnostics: solverDiagnosticSummary(execution.execution.diagnostics),
       restraint: compareRestraints(execution, parseCiiRestraints(xml, ciiLoadCase)),
@@ -237,7 +238,7 @@ function compareDisplacements(execution, cii) {
 }
 
 export const BM4_COMPARISON_LIMITATIONS = Object.freeze([
-  'CAESAR solved BM4 with its nonlinear restraint treatment active: unilateral (+Y) supports lift off, and gapped GUIDE/LIM supports stay open until their gap closes. This consumer solves the rigid one-way supports by active-set iteration (LFEA_UNILATERAL_ACTIVE_SET_ITERATION), so they lift off as in CAESAR, but still treats gapped supports as closed and ignores friction, disclosed as GENERIC_APPROX_GAP_CLOSED / GENERIC_APPROX_FRICTION_IGNORED. Every deviation recorded here at a gapped support is attributable to that declared approximation, not to a solver defect.',
+  'CAESAR solved BM4 with its nonlinear restraint treatment active: unilateral (+Y) supports lift off, and gapped GUIDE/LIM supports stay open until their gap closes. This consumer solves the rigid one-way and gapped supports by active-set iteration (LFEA_UNILATERAL_ACTIVE_SET_ITERATION), so they lift off and their gaps open and close as in CAESAR, but it does not apply support friction yet (GENERIC_APPROX_FRICTION_IGNORED): supports slide freely. CAESAR CASE 17 (SUS) carries friction, so sustained deviations at sliding supports are attributable to that declared approximation, not to a solver defect; CASE 20 (OPE) is the friction-free CAESAR operating case.',
   'CAESAR reports 112 displacement nodes against this model\'s 97: CAESAR inserts its own intermediate bend nodes. Only the 97 nodes declared by the source model are compared; no approximate station matching is used.',
   'reaction values are the reaction applied BY the restraint TO the structure (this repository\'s standing convention). CAESAR\'s RESTRAINT_REPORT exports the equal-and-opposite force applied BY the pipe TO the restraint hardware, so every CAESAR reaction is negated before differencing.',
   'The comparison runs on InputXML_BM4.repaired.xml, whose three corrected backtracking elements are documented in benchmarks/LFEA/BM4/PROVENANCE.md and reproducible via scripts/lfea-bm4-collinear-repair.mjs. The as-received model BLOCKs on TOPOLOGY_COLLINEAR_SEGMENT_OVERLAP and cannot be solved at all.',
