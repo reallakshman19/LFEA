@@ -135,7 +135,8 @@ Comparison with CAESAR SUS (W+P), checked by
 | BM4, + reducer and tee elements checked | 126 of 128 | 122 | 58 | 107 | 29.7% |
 | BM4, + weldolet run ends (now) | 126 of 128 | 122 | **62** | **109** | 29.7% |
 | BM4_L (ACCDB) vs CASE 6, friction-free, reducers and tees | 128 | 128 | 106 | 128 | 4.7% |
-| **BM4_L, + weldolet run ends (now)** | **128** | **128** | **112** | **128** | **3.6%** |
+| BM4_L, + weldolet run ends | 128 | 128 | 112 | 128 | 3.6% |
+| **BM4_L, + restraint code 3 read as two-way Y (now)** | **128** | **128** | **122** | **128** | **2.0%** |
 
 Reducer and tee elements (2026-11-26). The check now covers reducer and tee
 elements, not just straight pipe (`LFEA_PRACTICAL_B31_FITTINGS`, see the
@@ -167,6 +168,39 @@ branch end keeps unity.
 
 - BM4_L: within 1% goes from 106 to 112; worst from 4.7% to 3.6%.
 - BM4 InputXML: within 1% from 58 to 62, within 5% from 107 to 109.
+
+BM4_L Y supports are two-way (2026-11-26). LFEA read ACCDB restraint code 3
+as a one-way "+Y". That label came from the BM4 InputXML run, where those
+supports really are +Y. BM4_L is different:
+
+- its own `RESTRAINT_TYPES` table names 3 = "Y" and 14 = "+Y";
+- its `OUTPUT_RESTRAINTS` prints "Rigid Y" at every one of those supports;
+- CAESAR holds 20090 down in CASE 6 (1.66 kN) and in CASE 5 (51.8 kN), which
+  a +Y cannot do; and
+- L14 (L5 − L6) equals L3 (T1 alone) exactly, so CAESAR solved it as linear.
+
+Read as +Y, LFEA lifted 20090, 21470, 21610 and 20350 off in the operating
+case. `accdb-restraint-type-correspondence.js` now maps 3 to two-way Y and
+14 to +Y. BM4 InputXML is unaffected (its +Y supports keep the active set).
+
+BM4_L against CAESAR, measured by `scripts/lfea-production-caesar-parity-check.mjs`
+(node displacements and rotations, support forces and moments, element end
+forces and moments; a value passes within 10% of CAESAR's, measured literally,
+so very small CAESAR values fail easily):
+
+| Case | Values within 10%, before | Now | Median error, before | Now |
+|---|---|---|---|---|
+| L2, W | 93.1% | **96.8%** | 0.63% | **0.37%** |
+| L6, W+P1 (SUS) | 84.7% | **95.8%** | 0.82% | **0.35%** |
+| L5, W+T1+P1 (OPE) | 70.6% | **93.0%** | 1.62% | **0.57%** |
+
+The thermal increment (L5 − L6) displacement now matches CAESAR: median ratio
+1.000, 10th percentile 0.997, over 117 components larger than 2 mm. Most of
+the L5 values still failing have small CAESAR values (rotations under
+1e-4 rad, moments under 50 N·m). The largest real ones are an axial force of
+550 N vs CAESAR's 446 N along 20160–20295 and moments of about 244 vs 304 N·m
+near 22130–22190. That script reports and does not gate: it has no pass
+marks yet.
 - BM4 InputXML: 10 tee-element ends are added (8 within 5%). Element
   20150-20160 has no CAESAR row, because CAESAR splits it at 20161. The worst
   29.7% is reducer 22000-22010 J: with no reducer record, LFEA checks it as
