@@ -25,7 +25,9 @@ instead:
 | Pre-flight `WARN` required a reviewer name and reason before Run | Sealed automatically through the same governed path. The approver is recorded as `NOT ENGINEER-REVIEWED (LFEA auto-accept)`; the reason lists the warning count. | Status line and basis line: "results are NOT ENGINEER-REVIEWED" |
 | Support loads: `GOVERNED_INTERFACE_SET_REQUIRED`, `EXPLICIT_UP_GLOBAL_REQUIRED`, `EXPLICIT_PARALLEL_TOLERANCE_REQUIRED` | Every Run derives one support per restrained node from the constraints the solve actually used (`src/lfea/derived-support-authority.js`). Up is the opposite of solve gravity (+Y), the axes are global X/Y/Z, and the parallel tolerance is 1e-6. It is staged, accepted as `NOT ENGINEER-REVIEWED (LFEA derived supports)` and published through the same governed chain, with `sourceId: LFEA_DERIVED_FROM_MODEL_RESTRAINTS`. If derivation fails, Results are unaffected. | Results, support panel, "Support basis": "DERIVED from the model restraints used by the solve … NOT ENGINEER-REVIEWED." |
 | B31 code check: `GOVERNED_CODE_PROFILE_REQUIRED`, `GOVERNED_EDITION_DATASET_REQUIRED` (pasted sealed JSON) | The Code tab takes two numbers, Sc and Sh in MPa, and **Run B31.3 code check** builds everything else (`src/lfea/practical-b31-check.js`). That means one SUSTAINED check per straight-pipe element end in each run weight case, unity stress factors on straight pipe, W = 1, Sc at 70 °F and Sh at the material's design temperature. It is staged, accepted as `NOT ENGINEER-REVIEWED (LFEA user allowables)` and published through the governed chain. Later Runs repeat it with the same values. | Results, B31 panel, "Code check basis": "Allowables entered by user (Sc=…;Sh=…) … NOT ENGINEER-REVIEWED." |
-| One-way supports (CAESAR "+Y" etc.) solved as two-way, so a support could pull the pipe (`GENERIC_APPROX_UNILATERAL_LINEARIZED`) | On by default: active-set iteration per load case (`src/lfea/unilateral-active-set.js`, `sourceId: LFEA_UNILATERAL_ACTIVE_SET_ITERATION`, reviewer `NOT ENGINEER-REVIEWED (LFEA unilateral active set)`). Solve; release every rigid one-way support whose reaction opposes its only direction; re-solve; re-engage any whose pipe moves back into it; stop when the set is stable, at most 20 solves per case. The record (per case: status, solve count, lifted-off supports, history) is sealed into the raw execution batch hash. A lifted-off support reports a reaction of exactly zero, so derived supports show it as zero. It never blocks: if a case cycles, hits the cap, or a release cannot be solved (for example a mechanism), the last solved state is published and the status says so. One-way springs stay linear and are counted. | Results, "One-way support basis": "One-way supports solved by active-set iteration (LFEA_UNILATERAL_ACTIVE_SET_ITERATION): … lifted off (nodes) … NOT ENGINEER-REVIEWED". The support basis lists the lifted-off supports. |
+| One-way supports (CAESAR "+Y" etc.) solved as two-way, so a support could pull the pipe (`GENERIC_APPROX_UNILATERAL_LINEARIZED`) | On by default: active-set iteration per load case (`src/lfea/unilateral-active-set.js`, `sourceId: LFEA_UNILATERAL_ACTIVE_SET_ITERATION`, reviewer `NOT ENGINEER-REVIEWED (LFEA unilateral active set)`). Solve; release every rigid one-way support whose reaction opposes its only direction; re-solve; re-engage any whose pipe moves back into it; stop when the set is stable, at most 20 solves per case. The record (per case: status, solve count, lifted-off supports, history) is sealed into the raw execution batch hash. A lifted-off support reports a reaction of exactly zero, so derived supports show it as zero. It never blocks: if a case cycles, hits the cap, or a release cannot be solved (for example a mechanism), the last solved state is published and the status says so. One-way springs stay linear and are counted. | Results, "One-way and gapped support basis": "One-way supports solved by active-set iteration (LFEA_UNILATERAL_ACTIVE_SET_ITERATION): … lifted off (nodes) … NOT ENGINEER-REVIEWED". The support basis lists the lifted-off supports. |
+| Gapped supports (CAESAR `GAP` > 0 on a guide or limit stop) treated as closed (`GENERIC_APPROX_GAP_CLOSED`) | On by default, in the same active-set iteration and record. A gap is a contact with a distance g: one side for a one-way gapped support, both sides for a two-way guide or limit. The first solve sees every gap open. An open gap closes when the pipe moves past g, and the solver then holds the pipe at exactly g (a constraint offset, `SOLVER_CONSTRAINT_OFFSET_INVALID` if malformed). A closed gap opens again when its stop pulls. Open gaps report zero. A gap whose length unit cannot be resolved stays closed and is counted. | Same "One-way and gapped support basis" line: "… gaps N closed (node DOF ±g mm) / M open …". |
+| Support friction (CAESAR `FRIC_COEF`) | **Not applied yet** (`GENERIC_APPROX_FRICTION_IGNORED`): supports slide freely. The record counts the friction coefficients not applied. | Same line: "N support friction coefficient(s) not applied: those supports slide freely." |
 
 Every assumed value stays in the sealed records (authority IDs, source IDs,
 approver identity), so dossiers, history and exports show exactly what was
@@ -35,7 +37,7 @@ assumed. Nothing is hidden.
 
 | Gate | Planned default basis |
 |---|---|
-| Gapped supports treated as closed (`GENERIC_APPROX_GAP_CLOSED`) | Extend the same active-set iteration to gaps: a gapped guide or limit stays open until the pipe closes its gap. This is now BM4's largest remaining support-load and OPE displacement error. |
+| Support friction ignored (`GENERIC_APPROX_FRICTION_IGNORED`) | Friction in the same iteration: a support in contact holds the pipe sideways up to mu x its normal load, then slides. With gaps open and no friction, BM4 SUS slides where CAESAR CASE 17 holds it (see the gapped-support evidence below), so this is now BM4's largest sustained error. A first attempt (stick spring of CAESAR's default 1,000,000 lb/in stiffness, slip by return mapping) did not converge on BM4, so it was left out. |
 | Strict profile refusals (bends as chords, friction) | Keep running under the approximation profile, listing each approximation on the results. |
 
 ## Evidence
@@ -73,7 +75,31 @@ moves −25 mm in Z in CAESAR and 0 here (`GENERIC_APPROX_GAP_CLOSED`).
 - the solver's release validation;
 - the non-converging and unsolvable paths, which publish the last state
   rather than block;
-- that BM4 derived supports report zero Fv at every lifted-off support.
+- that BM4 derived supports report zero Fv at every lifted-off support;
+- that the solver holds a closed gap at its offset and refuses invalid
+  offsets, and the BM4 gap states below.
+
+Gapped supports (same iteration, 2026-11-26). BM4 has six gapped guides and
+limit stops. SUS converges in 2 solves with all six open. OPE converges in 4
+solves and closes three, each exactly where CAESAR closes it: 20390 DX −5 mm,
+21480 DX +10 mm and 21640 DX −10 mm, the same in both. The OPE comparison is
+with CAESAR CASE 20, its friction-free operating case. SUS is compared with
+CASE 17, which carries friction. CASE 19 is not a clean friction-free SUS
+case, so there is none to compare with.
+
+| BM4 (30 supports) | One-way only | One-way + gaps |
+|---|---|---|
+| SUS within 5% / or lifted off with CAESAR | 21 / 23 | 21 / 23 |
+| OPE within 5% / or lifted off with CAESAR | 17 / 21 | **21 / 25** |
+| Total displacement ratio OPE | 0.7615 | **0.8960** |
+| Total displacement ratio SUS | 1.0014 | 1.2381 |
+
+The check's thresholds are raised to the new OPE values. SUS gets worse,
+and the check records that rather than hiding it. With its gaps open (as
+in CAESAR) and no friction, the sustained pipe slides sideways where
+CAESAR's friction holds it. For example, node 20030 moves −0.58 mm in Z here
+and 0.00 in CAESAR, whose support there carries FX −2086 N of friction. The
+SUS band moves to 1.20–1.28 until friction is applied.
 
 Support loads: BM4 derives and resolves all 30 supports, and BM1 all 10.
 `scripts/lfea-derived-support-publication-check.mjs` checks this.
@@ -103,9 +129,15 @@ Comparison with CAESAR SUS (W+P), checked by
 |---|---|---|---|---|---|
 | BM1 | 18 | 18 | 10 | 16 | 13.2% (40-45, next to a bend) |
 | BM4, two-way supports (before 2026-11-26) | 116 | 112 | 55 | 103 | 29.7% |
-| BM4, one-way active set (now) | 116 | 112 | **56** | 102 | 29.7% |
+| BM4, one-way active set | 116 | 112 | 56 | 102 | 29.7% |
+| BM4, one-way + gaps, no friction (now) | 116 | 112 | **57** | 99 | 29.7% |
 
-The check holds BM4 at 56 within 1%, 102 within 5% and a worst case of 29.7%.
+With gaps, the check holds BM4 at 57 within 1%, 99 within 5% and a worst case
+of 29.7%. Three more rows cross 5%. They are near supports that slide here but
+that CAESAR CASE 17 holds by friction, the same cause as the SUS displacement
+change above. They are expected to recover once friction is applied.
+
+With one-way supports only, the check held BM4 at 56 within 1%, 102 within 5% and a worst case of 29.7%.
 The SUS case lifts off only 2 small supports (20090 and 21470; 20090 was
 pulling by about 290 N), so the stresses barely move. One row improves to
 within 1%. One row crosses 5%: 20030-20090 J goes from 1.3% to 5.5%, next
@@ -115,8 +147,8 @@ here, not hidden.
 
 The remaining differences are in the moments, not the code check:
 
-- **BM4:** gapped guides and limits (`GENERIC_APPROX_GAP_CLOSED`) and
-  friction, which CAESAR models and LFEA does not yet.
+- **BM4:** support friction, which CAESAR models and LFEA does not yet
+  (`GENERIC_APPROX_FRICTION_IGNORED`).
 - **BM1:** the moments next to the bend at 48–50 differ.
 - **BM4, 4 ends at tees:** CAESAR applies the tee SIF and branch section;
   LFEA checks these ends as plain pipe.

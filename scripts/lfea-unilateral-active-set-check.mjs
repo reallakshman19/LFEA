@@ -13,6 +13,10 @@
  *         that cycles, both publish the last solved state with a status.
  * UNI-05  BM4: derived supports report every lifted-off support as zero.
  * UNI-06  the Results basis label carries the source ID and reviewer identity.
+ * UNI-07  the solver holds a closed gap at its offset and refuses an offset that
+ *         is not one distinct, unreleased FIXED constraint with a finite value.
+ * UNI-08  BM4: gapped supports open, three close in OPE, and the label names the
+ *         closed gaps and the friction coefficients not applied.
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -32,6 +36,7 @@ import {
   LFEA_UNILATERAL_ACTIVE_SET_REVIEWER,
   LFEA_UNILATERAL_ACTIVE_SET_SOURCE,
   lfeaUnilateralActiveSetLabel,
+  lfeaUnilateralCandidates,
   solveWithLfeaUnilateralActiveSet,
 } from '../src/lfea/unilateral-active-set.js';
 import { createLfeaNativeResultsAuthority } from '../src/lfea/native-results-authority.js';
@@ -152,6 +157,40 @@ const label = lfeaUnilateralActiveSetLabel(bm4Execution.execution.unilateralActi
 assert.ok(label.includes(LFEA_UNILATERAL_ACTIVE_SET_SOURCE) && label.includes(LFEA_UNILATERAL_ACTIVE_SET_REVIEWER));
 assert.ok(label.includes('IXP-WP: 2 lifted off (20090, 21470)'), label);
 console.log('LFEA-UNI-06 PASS Results basis label names source, lifted-off supports and reviewer identity');
+
+// UNI-07 ---------------------------------------------------------------------
+const [end, middle] = lfeaUnilateralCandidates(preFlight.preparation).candidates;
+const solverBase = {
+  compilation: preFlight.preparation.structuralPreparation.compilation,
+  elementContributions: elements.elementContributions,
+  loadCase: physical.loadCase,
+  solverProfile: inputXmlStiffnessSolverProfile(),
+};
+const held = compileSolverExecution({ ...solverBase, constraintOffsets: [{ constraintId: middle.constraintId, value: 0.002 }] });
+const heldUy = held.displacement.find((row) => row.nodeId === middle.nodeId && row.dof === 'UY').value;
+assert.ok(Math.abs(heldUy - 0.002) < 1e-12, `a closed gap holds the pipe at its offset (got ${heldUy} m)`);
+for (const [constraintOffsets, releasedConstraintIds] of [
+  [[{ constraintId: 'NOT-A-CONSTRAINT', value: 0.001 }], undefined],
+  [[{ constraintId: end.constraintId, value: 0.001 }], [end.constraintId]],
+  [[{ constraintId: end.constraintId, value: Number.NaN }], undefined],
+  [[{ constraintId: end.constraintId, value: 0.001 }, { constraintId: end.constraintId, value: 0.002 }], undefined],
+  [{ constraintId: end.constraintId, value: 0.001 }, undefined],
+]) {
+  assert.throws(() => compileSolverExecution({ ...solverBase, constraintOffsets, releasedConstraintIds }),
+    (error) => error?.code === 'SOLVER_CONSTRAINT_OFFSET_INVALID');
+}
+console.log('LFEA-UNI-07 PASS solver holds a closed gap at its offset and refuses invalid offsets');
+
+// UNI-08 ---------------------------------------------------------------------
+const bm4Record = bm4Execution.execution.unilateralActiveSet;
+assert.equal(bm4Record.gapCandidateCount, 6, 'BM4 has six gapped supports');
+assert.ok(bm4Record.frictionNotAppliedCount > 0, 'BM4 friction coefficients are counted as not applied');
+const operatingGaps = bm4Record.cases.find((row) => row.caseId === 'IXP-WPT');
+assert.deepEqual(operatingGaps.gaps.filter((row) => row.state !== 'OPEN').map((row) => row.sourceNodeId).sort(), ['20390', '21480', '21640']);
+assert.equal(operatingGaps.constraintOffsets.length, 3, 'each closed gap is sealed as a solver offset');
+assert.ok(label.includes('IXP-WPT: 4 lifted off') && label.includes('gaps 3 closed'), label);
+assert.ok(label.includes('friction coefficient(s) not applied'), label);
+console.log('LFEA-UNI-08 PASS BM4 gaps open and close, label names closed gaps and friction not applied');
 
 console.log(JSON.stringify({
   check: 'lfea-unilateral-active-set',

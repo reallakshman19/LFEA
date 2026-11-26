@@ -58,13 +58,13 @@ export function executeInputXmlAuthorizedRawCases({
     );
     requireEffectiveStiffnessCustody(accepted, preflight, elements);
 
-    const releasedConstraintIds = releasedConstraintIdsFor(activeSet, caseId);
+    const solverInputs = activeSetCase(activeSet, caseId);
     const runtimeExecution = compileSolverExecution({
       compilation: accepted.structuralPreparation.compilation,
       elementContributions: elements.elementContributions,
       loadCase: physical.loadCase,
       solverProfile,
-      ...(releasedConstraintIds.length > 0 ? { releasedConstraintIds } : {}),
+      ...Object.fromEntries(Object.entries(solverInputs).filter(([, rows]) => rows.length > 0)),
     });
     const execution = retainedSolverExecution(runtimeExecution);
 
@@ -141,23 +141,29 @@ export function rawExecutionSemanticProjection(record) {
 }
 
 /**
- * The one-way support active set (LFEA_UNILATERAL_ACTIVE_SET_ITERATION) names,
- * per case, the FIXED constraints whose supports lifted off. The solver
- * validates every named constraint against the sealed compilation.
+ * The contact active set (LFEA_UNILATERAL_ACTIVE_SET_ITERATION) names, per
+ * case: the FIXED constraints whose supports are open (lifted off, or a gap
+ * not yet closed) and the closed gaps held at their gap distance. The solver
+ * validates every entry against the sealed compilation.
  */
+const ACTIVE_SET_SOLVER_INPUTS = Object.freeze(['releasedConstraintIds', 'constraintOffsets']);
+
 function requireActiveSetRecord(record) {
   if (record === undefined || record === null) return null;
   if (typeof record !== 'object' || !Array.isArray(record.cases)
-    || record.cases.some((row) => typeof row?.caseId !== 'string' || !Array.isArray(row.releasedConstraintIds))) {
+    || record.cases.some((row) => typeof row?.caseId !== 'string' || !Array.isArray(row.releasedConstraintIds)
+      || ACTIVE_SET_SOLVER_INPUTS.some((field) => row[field] !== undefined && !Array.isArray(row[field])))) {
     throw executionError('INPUTXML_EXECUTION_UNILATERAL_ACTIVE_SET_INVALID',
-      'A unilateral active-set record must list each case with its released constraint identities.');
+      'A unilateral active-set record must list each case with its released constraints and any gap offsets.');
   }
   return deepFreeze(JSON.parse(JSON.stringify(record)));
 }
 
-function releasedConstraintIdsFor(activeSet, caseId) {
+function activeSetCase(activeSet, caseId) {
   const row = activeSet?.cases.find((candidate) => candidate.caseId === caseId);
-  return row ? [...row.releasedConstraintIds] : [];
+  return Object.fromEntries(ACTIVE_SET_SOLVER_INPUTS.map((field) => [
+    field, (row?.[field] ?? []).map((entry) => (typeof entry === 'object' ? { ...entry } : entry)),
+  ]));
 }
 
 function retainedSolverExecution(runtimeExecution) {

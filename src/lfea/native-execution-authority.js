@@ -8,10 +8,10 @@ export const LFEA_NATIVE_EXECUTION_CURRENTNESS = Object.freeze({ NONE: 'NONE', C
 /**
  * Own current/stale application state separately from immutable solver evidence.
  *
- * One-way supports are solved by the LFEA_UNILATERAL_ACTIVE_SET_ITERATION
+ * One-way and gapped supports are solved by the LFEA_UNILATERAL_ACTIVE_SET_ITERATION
  * (src/lfea/unilateral-active-set.js), on by default; every iteration solve
  * still passes the full governed gateway. `unilateralActiveSet: false` keeps
- * the single linear solve with every support two-way.
+ * the single linear solve with every support two-way and every gap closed.
  */
 export function createLfeaNativeExecutionAuthority(options = {}) {
   const executeAuthorizedCases = options.executeAuthorizedCases ?? executeInputXmlAuthorizedRawCases;
@@ -34,7 +34,9 @@ export function createLfeaNativeExecutionAuthority(options = {}) {
         : (input) => executeAuthorizedCases({ ...input, unilateralActiveSet }),
     });
     const execution = unilateralActiveSetEnabled
-      ? solveWithLfeaUnilateralActiveSet(preFlight.preparation, requestedCaseIds, solve)
+      ? solveWithLfeaUnilateralActiveSet(preFlight.preparation, requestedCaseIds, solve, {
+        sourceBundle: preFlight.diagnostics?.sourceBundle ?? null,
+      })
       : solve(requestedCaseIds, null);
     state = Object.freeze({
       currentness: LFEA_NATIVE_EXECUTION_CURRENTNESS.CURRENT,

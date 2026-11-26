@@ -320,8 +320,36 @@ function requireReleasedConstraints(model, releasedConstraintIds) {
   });
 }
 
+/**
+ * Constraint offsets: a gapped support that has closed holds the pipe at its
+ * gap distance, not at zero. Each offset names one FIXED, unreleased
+ * constraint of the sealed compilation and the displacement (solver units)
+ * that constraint imposes. The partition is unchanged; only the imposed
+ * value differs, and the reaction is recovered exactly as for any FIXED DOF.
+ */
+function requireConstraintOffsets(model, constraintOffsets, releasedIds) {
+  if (constraintOffsets === undefined || constraintOffsets === null) return new Map();
+  if (!Array.isArray(constraintOffsets)) {
+    fail('constraintOffsets must be an array of { constraintId, value }.', 'SOLVER_CONSTRAINT_OFFSET_INVALID');
+  }
+  const byId = new Map(model.constraints.map((constraint) => [constraint.constraintId, constraint]));
+  const offsets = new Map();
+  for (const entry of constraintOffsets) {
+    const constraint = byId.get(entry?.constraintId);
+    if (constraint === undefined || constraint.behavior !== 'FIXED' || releasedIds.has(entry.constraintId)
+      || offsets.has(entry.constraintId) || typeof entry.value !== 'number' || !Number.isFinite(entry.value)) {
+      fail(
+        `Constraint offset ${String(entry?.constraintId)} must name one distinct, unreleased FIXED constraint with a finite value.`,
+        'SOLVER_CONSTRAINT_OFFSET_INVALID',
+      );
+    }
+    offsets.set(entry.constraintId, entry.value);
+  }
+  return offsets;
+}
+
 export function compileSolverExecution({
-  compilation, elementContributions, loadCase, solverProfile, cache, releasedConstraintIds,
+  compilation, elementContributions, loadCase, solverProfile, cache, releasedConstraintIds, constraintOffsets,
 }) {
   const acceptedCompilation = requireMechanicalModelCompilation(compilation);
   const acceptedLoadCase = requirePhysicalLoadCase(loadCase);
@@ -331,6 +359,7 @@ export function compileSolverExecution({
 
   const released = requireReleasedConstraints(acceptedCompilation.model, releasedConstraintIds);
   const releasedIds = new Set(released.map((constraint) => constraint.constraintId));
+  const offsets = requireConstraintOffsets(acceptedCompilation.model, constraintOffsets, releasedIds);
   const model = released.length === 0
     ? acceptedCompilation.model
     : Object.freeze({
@@ -352,6 +381,9 @@ export function compileSolverExecution({
     assembly.constrained,
     acceptedLoadCase,
   );
+  for (const entry of assembly.constrained) {
+    if (offsets.has(entry.constraintId)) prescribedValues.set(entry.globalIndex, offsets.get(entry.constraintId));
+  }
   requireInactiveSubspace(assembly, dofMap, Ffull, prescribedValues);
 
   const Ufull = new Array(dofMap.dofCount).fill(0);
