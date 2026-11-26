@@ -36,6 +36,9 @@ import {
   requireTraceableDeclaredValue,
 } from './code-engine-contract.js';
 
+/** B31J Table 1-1 / B31.3 Appendix D reducer rules (linear-fea-b31-factor-calculator records.js). */
+const REDUCER_FACTOR_RULE_IDS = ['TABLE_1_1_SKETCH_3_1_REDUCER', 'TABLE_D300_REDUCER_UNITY'];
+
 /**
  * LFEA-B4.0 exit boundary: evaluate one B31.3 code point (sections 10, 10.6)
  * from a sealed `fea-b31-code-profile/v1`, a sealed `fea-b31-edition-dataset/v1`,
@@ -124,9 +127,13 @@ export function compileCodeResult({
     }
   } else if (sustainedSectionResolution !== null) {
     acceptedSustainedSection = requirePipeSectionResolution(sustainedSectionResolution);
-    if (acceptedSustainedSection.dimensions.outerDiameter !== acceptedSection.dimensions.outerDiameter) {
+    // A reducer end is checked with the pipe that matches that end
+    // (MATCHING_PIPE_SECTION_MODULUS_BY_REDUCER_END), so only a factor set
+    // declared under a reducer rule may cite a different outer diameter.
+    if (acceptedSustainedSection.dimensions.outerDiameter !== acceptedSection.dimensions.outerDiameter
+      && !REDUCER_FACTOR_RULE_IDS.includes(factorSet.sourceIdentity.ruleId)) {
       fail(
-        'sustainedSectionResolution.dimensions.outerDiameter must exactly match the nominal section outer diameter; an allowance changes wall thickness only.',
+        'sustainedSectionResolution.dimensions.outerDiameter must exactly match the nominal section outer diameter; an allowance changes wall thickness only (a reducer-rule factor set may cite the size at its end).',
         'CODE_ENGINE_SUSTAINED_SECTION_OVERRIDE_GEOMETRY_MISMATCH',
       );
     }
