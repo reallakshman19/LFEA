@@ -83,6 +83,15 @@ export const TEMPERATURE_INTERPOLATION_POLICIES = Object.freeze([
  * (weighted cold/hot allowable, then a cycle-reduction factor); every
  * coefficient is a caller-declared edition-dataset entry. */
 export const DISPLACEMENT_RANGE_COMBINATION_RULE = 'DISPLACEMENT_RANGE_COLD_HOT_CYCLE_REDUCTION_LINEAR_V1';
+/** Same allowable as the rule above; the range stress is ASME B31.3 (2016 and
+ * later) para. 319.4.4 Eq. (17), SE = sqrt((|Sa| + Sb)^2 + (2 St)^2) with
+ * Sa = ia |Fa| / Ap and St = it Mt / (2 Z), instead of the B31.3-2006 form
+ * without Sa. Opt-in per profile, so profiles on the first rule are unchanged. */
+export const DISPLACEMENT_RANGE_EQ17_AXIAL_TORSION_RULE = 'DISPLACEMENT_RANGE_COLD_HOT_CYCLE_REDUCTION_EQ17_AXIAL_TORSION_V1';
+export const DISPLACEMENT_RANGE_COMBINATION_RULES = Object.freeze([
+  DISPLACEMENT_RANGE_COMBINATION_RULE,
+  DISPLACEMENT_RANGE_EQ17_AXIAL_TORSION_RULE,
+]);
 
 /** Section 10.3: the stress-combination formula this package implements —
  * generic beam mechanics (F/A, M/Z) folded by direct sum (axial + pressure)
@@ -363,8 +372,8 @@ function validateProfileCore(profile) {
     fail(`profile.flexibilitySource must be ${FLEXIBILITY_SIF_STANDARD} or null.`, PROFILE_CODE);
   }
   requireMember(profile.temperatureInterpolationPolicy, TEMPERATURE_INTERPOLATION_POLICIES, 'profile.temperatureInterpolationPolicy', PROFILE_CODE);
-  if (profile.displacementRangeCombinationRuleId !== DISPLACEMENT_RANGE_COMBINATION_RULE) {
-    fail(`profile.displacementRangeCombinationRuleId must be ${DISPLACEMENT_RANGE_COMBINATION_RULE}.`, PROFILE_CODE);
+  if (!DISPLACEMENT_RANGE_COMBINATION_RULES.includes(profile.displacementRangeCombinationRuleId)) {
+    fail(`profile.displacementRangeCombinationRuleId must be one of ${DISPLACEMENT_RANGE_COMBINATION_RULES.join(', ')}.`, PROFILE_CODE);
   }
   validateOccasionalDurationFactors(profile.occasionalDurationFactors);
   if (typeof profile.liberalAllowableUse !== 'boolean') {

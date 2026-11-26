@@ -13,6 +13,8 @@ export {
   LINEAR_BRACKET_TEMPERATURE_POLICY,
   TEMPERATURE_INTERPOLATION_POLICIES,
   DISPLACEMENT_RANGE_COMBINATION_RULE,
+  DISPLACEMENT_RANGE_EQ17_AXIAL_TORSION_RULE,
+  DISPLACEMENT_RANGE_COMBINATION_RULES,
   STRESS_COMBINATION_METHOD,
   SUSTAINED,
   OCCASIONAL,
@@ -59,6 +61,7 @@ export {
   sectionMechanicalProperties,
   extractResultants,
   combineStressTerms,
+  combineRangeStressTermsEq17,
 } from './stress-terms.js';
 
 export {

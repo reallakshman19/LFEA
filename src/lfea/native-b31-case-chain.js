@@ -110,9 +110,13 @@ export function lfeaNativeB31PublicationParent(executionState, resultsState, aut
 function requireCheckCaseCoverage(chains, checks) {
   const currentCaseIds = new Set(chains.map((row) => row.caseId));
   for (const check of checks) {
-    if (!currentCaseIds.has(check.actionSource.caseId)) {
-      throw lfeaNativeB31Error('LFEA_NATIVE_B31_CURRENT_CASE_EXECUTION_REQUIRED',
-        `B31 check ${check.checkId} requires current execution/recovery for ${check.actionSource.caseId}.`);
+    const source = check.actionSource;
+    const caseIds = source.kind === 'CASE_RANGE' ? [source.fromCaseId, source.toCaseId] : [source.caseId];
+    for (const caseId of caseIds) {
+      if (!currentCaseIds.has(caseId)) {
+        throw lfeaNativeB31Error('LFEA_NATIVE_B31_CURRENT_CASE_EXECUTION_REQUIRED',
+          `B31 check ${check.checkId} requires current execution/recovery for ${caseId}.`);
+      }
     }
   }
 }
