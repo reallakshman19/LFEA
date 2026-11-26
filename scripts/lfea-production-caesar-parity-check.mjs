@@ -19,11 +19,12 @@
  * do not correspond one-to-one with CAESAR's after bend retopology; see
  * scripts/lib/lfea-production-benchmark-actual.mjs.
  *
- * Exit status is deliberately NOT coupled to the qualification verdict. This
- * reports the measurement; whether today's agreement is good enough is an
- * engineering judgement, and baking a passing threshold in would make the check
- * assert its own conclusion. It fails only when the harness itself cannot
- * produce a comparison.
+ * Exit status is NOT coupled to the comparator's own qualification verdict
+ * (which demands every component within 10%). It is coupled to PASS_MARKS
+ * below: floors at the agreement last measured, so a change that makes
+ * production agree less with CAESAR fails CI. They are recorded in
+ * docs/PRACTICAL_ANALYSIS_POLICY.md and are raised, never lowered, as
+ * agreement improves.
  */
 
 import assert from 'node:assert/strict';
@@ -482,6 +483,27 @@ console.log(JSON.stringify({
   },
   perCase,
 }, null, 2));
+
+// Pass marks (measured 2026-11-26, after ACCDB restraint code 3 became two-way
+// Y): share of compared values within 10% of CAESAR, per case and for node
+// displacements and support forces, and a ceiling on the median error.
+const PASS_MARKS = Object.freeze({
+  L2: { passRatePercent: 96.7, displacement: 96.5, supportForce: 98.8, medianPercentError: 0.37 },
+  L6: { passRatePercent: 95.8, displacement: 96.5, supportForce: 100, medianPercentError: 0.36 },
+  L5: { passRatePercent: 93.0, displacement: 93.8, supportForce: 100, medianPercentError: 0.57 },
+});
+for (const [caseId, marks] of Object.entries(PASS_MARKS)) {
+  const measured = perCase.find((row) => row.caseId === caseId);
+  assert.ok(measured, `BM4_L ${caseId} must be compared.`);
+  const at = (label, value, mark, floor = true) => assert.ok(floor ? value >= mark : value <= mark,
+    `BM4_L ${caseId} ${label} ${value} ${floor ? 'below' : 'above'} its pass mark ${mark} (docs/PRACTICAL_ANALYSIS_POLICY.md).`);
+  at('values within 10% (%)', measured.passRatePercent, marks.passRatePercent);
+  at('displacements within 10% (%)', measured.byQuantity.DISPLACEMENT.passRatePercent, marks.displacement);
+  at('support forces within 10% (%)', measured.byQuantity.FORCE.passRatePercent, marks.supportForce);
+  at('median error (%)', measured.medianPercentError, marks.medianPercentError, false);
+}
+// No trailing output: lfea-production-caesar-parity-evidence-check.mjs parses
+// everything after the report as JSON. Exit 0 means every pass mark held.
 
 function bm4lThermalIntervalAuthority(sourceBundle) {
   const record = JSON.parse(fs.readFileSync(THERMAL_INTERVAL_AUTHORITY, 'utf8'));
