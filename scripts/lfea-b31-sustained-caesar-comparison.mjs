@@ -4,7 +4,7 @@
  * The pressure term must match CAESAR SLP on the nominal-less-corrosion wall;
  * the total code stress is held to the tolerances measured when the
  * comparison was introduced (moment differences come from the solver, e.g.
- * BM4 one-way supports, and tee ends that are checked as plain pipe).
+ * BM4 gapped guides, and tee ends that are checked as plain pipe).
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -93,5 +93,11 @@ assert.ok(bm1.within1Pct >= 10 && bm1.within5Pct >= 16 && bm1.maxPct <= 15, 'BM1
 const bm4 = compare('BM4', 'benchmarks/LFEA/BM4/InputXML_BM4.repaired.xml', 'benchmarks/LFEA/BM4/Output_BM4.xml', 'CASE 17 (SUS)', 'CASE 19');
 assert.equal(bm4.checks, 116);
 assert.ok(bm4.slpWithin0p1Pct >= 112, 'BM4 pressure term equals CAESAR SLP except at 4 tee ends');
-assert.ok(bm4.within1Pct >= 55 && bm4.within5Pct >= 103 && bm4.maxPct <= 31, 'BM4 sustained stress tolerance');
+// Re-measured 2026-11-26 with one-way supports solved by active-set iteration
+// (SUS lifts 20090 and 21470, as CAESAR does): within 1% 55 -> 56, within 5%
+// 103 -> 102, worst 29.7% unchanged (tee end 22000-22010 J). The one row that
+// crossed 5% is 20030-20090 J (1.3% -> 5.5%), next to the lifted-off 20090,
+// where CAESAR also holds the gapped guide at 20030 open (still closed here,
+// GENERIC_APPROX_GAP_CLOSED).
+assert.ok(bm4.within1Pct >= 56 && bm4.within5Pct >= 102 && bm4.maxPct <= 29.7, 'BM4 sustained stress tolerance');
 console.log('LFEA B31 sustained vs CAESAR comparison PASS');

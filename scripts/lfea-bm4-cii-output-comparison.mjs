@@ -127,9 +127,15 @@ export function buildBm4CiiComparison() {
   const cases = {};
   for (const { caseId, ciiLoadCase } of BM4_CASE_PAIRS) {
     const execution = batch.caseExecutions.find((row) => row.caseId === caseId);
+    const activeSetCase = batch.unilateralActiveSet?.cases.find((row) => row.caseId === caseId) ?? null;
     cases[caseId] = {
       ciiLoadCase,
       executionStatus: execution.executionStatus,
+      unilateralActiveSet: activeSetCase === null ? null : {
+        status: activeSetCase.status,
+        solveCount: activeSetCase.solveCount,
+        liftedOffNodes: activeSetCase.liftedOff.map((row) => row.sourceNodeId),
+      },
       diagnostics: solverDiagnosticSummary(execution.execution.diagnostics),
       restraint: compareRestraints(execution, parseCiiRestraints(xml, ciiLoadCase)),
       displacement: compareDisplacements(execution, parseCiiDisplacements(xml, ciiLoadCase)),
@@ -176,7 +182,20 @@ function compareRestraints(execution, cii) {
     unmatchedOurNodes: [...ours.keys()].filter((node) => !cii.has(node)),
     totalUY: { ours: ourTotalUY, cii: ciiTotalUY, percentDifference: percent(ourTotalUY, ciiTotalUY) },
     unilateralTensionNodes: unilateralTensionNodes(matched),
+    zeroReactionMatches: zeroReactionMatches(matched),
   };
+}
+
+/**
+ * A percentage is undefined where CAESAR reports exactly zero, so a support
+ * both solvers lift off would never count as "within 5%". These are the
+ * supports where CAESAR's vertical reaction is zero and ours is below 0.5 N.
+ */
+export const ZERO_REACTION_MATCH_NEWTONS = 0.5;
+function zeroReactionMatches(matched) {
+  return matched
+    .filter((row) => row.UY.cii === 0 && Math.abs(row.UY.ours) < ZERO_REACTION_MATCH_NEWTONS)
+    .map((row) => row.nodeId);
 }
 
 /**
@@ -218,7 +237,7 @@ function compareDisplacements(execution, cii) {
 }
 
 export const BM4_COMPARISON_LIMITATIONS = Object.freeze([
-  'CAESAR solved BM4 with its nonlinear restraint treatment active: unilateral (+Y) supports lift off, and gapped GUIDE/LIM supports stay open until their gap closes. This consumer linearizes every restrained DOF as bidirectionally FIXED and discloses that as GENERIC_APPROX_GAP_CLOSED / GENERIC_APPROX_FRICTION_IGNORED. Every deviation recorded here at a gapped or unilateral support is attributable to that declared approximation, not to a solver defect.',
+  'CAESAR solved BM4 with its nonlinear restraint treatment active: unilateral (+Y) supports lift off, and gapped GUIDE/LIM supports stay open until their gap closes. This consumer solves the rigid one-way supports by active-set iteration (LFEA_UNILATERAL_ACTIVE_SET_ITERATION), so they lift off as in CAESAR, but still treats gapped supports as closed and ignores friction, disclosed as GENERIC_APPROX_GAP_CLOSED / GENERIC_APPROX_FRICTION_IGNORED. Every deviation recorded here at a gapped support is attributable to that declared approximation, not to a solver defect.',
   'CAESAR reports 112 displacement nodes against this model\'s 97: CAESAR inserts its own intermediate bend nodes. Only the 97 nodes declared by the source model are compared; no approximate station matching is used.',
   'reaction values are the reaction applied BY the restraint TO the structure (this repository\'s standing convention). CAESAR\'s RESTRAINT_REPORT exports the equal-and-opposite force applied BY the pipe TO the restraint hardware, so every CAESAR reaction is negated before differencing.',
   'The comparison runs on InputXML_BM4.repaired.xml, whose three corrected backtracking elements are documented in benchmarks/LFEA/BM4/PROVENANCE.md and reproducible via scripts/lfea-bm4-collinear-repair.mjs. The as-received model BLOCKs on TOPOLOGY_COLLINEAR_SEGMENT_OVERLAP and cannot be solved at all.',

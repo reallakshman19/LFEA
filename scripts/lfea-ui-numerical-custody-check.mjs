@@ -26,14 +26,19 @@ const BASE_MAIN = 'a222e18c38bd20fb55c1c6c95f724f40e40e8532';
 const FROZEN_AUTHORITY = Object.freeze([
   ['src/workspace/linear-piping-inputxml-prefea.js', 'e6905dae832bc7efaef804c3756570f2e92d9892', 'governed pre-flight wrapper'],
   ['src/workspace/linear-piping-accdb-intake.js', '1cf14aacbded4fea5380312550d4884d7353989a', 'ACCDB governed intake bridge'],
-  ['src/lfea/native-execution-authority.js', '8bb52b9df81876e0dee3af63566a1112c2e45ed0', 'native execution currentness/authority'],
+  // Re-pinned 2026-11-26 at the owner's direction: one-way supports solved by
+  // LFEA_UNILATERAL_ACTIVE_SET_ITERATION (docs/PRACTICAL_ANALYSIS_POLICY.md),
+  // checked by scripts/lfea-unilateral-active-set-check.mjs.
+  ['src/lfea/native-execution-authority.js', '1974cefce478922f73e73ab7f3cb2a729476ac8c', 'native execution currentness/authority'],
   ['src/core/linear-piping-analysis-consumer/inputxml-source-binding.js', 'b191ef26897e17fc38bae1c396cf03c848aaa5ca', 'InputXML source binding'],
   ['src/core/linear-piping-analysis-consumer/accdb-source-binding.js', '0c777a1a78d84348f3506e6123f30df72c3989f4', 'ACCDB source binding'],
   ['src/core/geometry/adapters/accdb-to-canonical-geometry.js', '05c281085913f6b6f629582424a43e64bd16fa46', 'ACCDB canonical geometry'],
   ['src/core/geometry/adapters/stagedjson-to-inputxml-worker-client.js', 'f7c3e1dedb115b2626850f7f93c4012c0c3f59d0', 'StagedJSON conversion execution client'],
   ['src/core/linear-piping-analysis-consumer/inputxml-linear-solve-authorization.js', 'f13b39983b9a19ba33be9ec38639626f9492bab2', 'solve authorization'],
   ['src/core/linear-piping-analysis-consumer/inputxml-linear-governed-solve.js', '0a33cb013c9cb18440dd0732cfdb44191719ba05', 'authorization-only solve gateway'],
-  ['src/core/linear-piping-analysis-consumer/inputxml-linear-production-executor.js', '5f55011d14f56961fb125e0ebdba139cc3bbd992', 'production raw-case execution'],
+  // Re-pinned 2026-11-26 with the native execution authority above: the
+  // executor carries the sealed unilateral active set into the raw batch.
+  ['src/core/linear-piping-analysis-consumer/inputxml-linear-production-executor.js', 'cc77ca5673049175d0bf613efbcea94310123f6d', 'production raw-case execution'],
   ['src/core/linear-piping-analysis-consumer/inputxml-linear-production-recovery.js', 'e4f1554605316d3c518cf3153a91dc21c6038fe7', 'production result recovery'],
 ]);
 

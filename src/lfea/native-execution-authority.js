@@ -1,13 +1,22 @@
 import { solveInputXmlLinearAnalysis } from '../core/linear-piping-analysis-consumer/inputxml-linear-governed-solve.js';
 import { executeInputXmlAuthorizedRawCases } from '../core/linear-piping-analysis-consumer/inputxml-linear-production-executor.js';
 import { requireLinearPipingInputXmlPreFlight } from '../workspace/linear-piping-inputxml-prefea.js';
+import { solveWithLfeaUnilateralActiveSet } from './unilateral-active-set.js';
 
 export const LFEA_NATIVE_EXECUTION_CURRENTNESS = Object.freeze({ NONE: 'NONE', CURRENT: 'CURRENT', STALE: 'STALE' });
 
-/** Own current/stale application state separately from immutable solver evidence. */
+/**
+ * Own current/stale application state separately from immutable solver evidence.
+ *
+ * One-way supports are solved by the LFEA_UNILATERAL_ACTIVE_SET_ITERATION
+ * (src/lfea/unilateral-active-set.js), on by default; every iteration solve
+ * still passes the full governed gateway. `unilateralActiveSet: false` keeps
+ * the single linear solve with every support two-way.
+ */
 export function createLfeaNativeExecutionAuthority(options = {}) {
   const executeAuthorizedCases = options.executeAuthorizedCases ?? executeInputXmlAuthorizedRawCases;
   if (typeof executeAuthorizedCases !== 'function') throw new TypeError('LFEA native execution requires an executor function.');
+  const unilateralActiveSetEnabled = options.unilateralActiveSet !== false;
   let state = emptyState();
 
   function run(preFlightRecord, options = {}) {
@@ -18,10 +27,15 @@ export function createLfeaNativeExecutionAuthority(options = {}) {
     }
     const requestedCaseIds = normalizeRequestedCases(options.requestedCaseIds
       ?? preFlight.authorization.authorizedPhysicalCaseIds);
-    const execution = solveInputXmlLinearAnalysis(preFlight.preparation, preFlight.authorization, {
-      requestedCaseIds,
-      executeAuthorizedCases,
+    const solve = (caseIds, unilateralActiveSet) => solveInputXmlLinearAnalysis(preFlight.preparation, preFlight.authorization, {
+      requestedCaseIds: caseIds,
+      executeAuthorizedCases: unilateralActiveSet === null
+        ? executeAuthorizedCases
+        : (input) => executeAuthorizedCases({ ...input, unilateralActiveSet }),
     });
+    const execution = unilateralActiveSetEnabled
+      ? solveWithLfeaUnilateralActiveSet(preFlight.preparation, requestedCaseIds, solve)
+      : solve(requestedCaseIds, null);
     state = Object.freeze({
       currentness: LFEA_NATIVE_EXECUTION_CURRENTNESS.CURRENT,
       execution,

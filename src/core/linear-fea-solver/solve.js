@@ -291,14 +291,53 @@ function groundedSpringReactions(model, dofMap, Ufull) {
   return entries;
 }
 
-export function compileSolverExecution({ compilation, elementContributions, loadCase, solverProfile, cache }) {
+/**
+ * Released constraints: an active-set iteration for one-way supports (see
+ * src/lfea/unilateral-active-set.js) may ask for named FIXED constraints of the
+ * sealed compilation to be left out of this solve, because the support they
+ * represent has lifted off. The stiffness state is unchanged; only the
+ * constrained partition differs, and partitionHash records exactly which DOFs
+ * were eliminated. A released DOF reports a reaction of exactly zero, so every
+ * source support keeps a reaction row and a lifted-off support reads zero.
+ */
+function requireReleasedConstraints(model, releasedConstraintIds) {
+  if (releasedConstraintIds === undefined || releasedConstraintIds === null) return [];
+  if (!Array.isArray(releasedConstraintIds)) {
+    fail('releasedConstraintIds must be an array of constraint identities.', 'SOLVER_RELEASED_CONSTRAINT_INVALID');
+  }
+  const byId = new Map(model.constraints.map((constraint) => [constraint.constraintId, constraint]));
+  const seen = new Set();
+  return releasedConstraintIds.map((constraintId) => {
+    const constraint = byId.get(constraintId);
+    if (constraint === undefined || constraint.behavior !== 'FIXED' || seen.has(constraintId)) {
+      fail(
+        `Released constraint ${String(constraintId)} must name one distinct FIXED constraint of the bound compilation.`,
+        'SOLVER_RELEASED_CONSTRAINT_INVALID',
+      );
+    }
+    seen.add(constraintId);
+    return constraint;
+  });
+}
+
+export function compileSolverExecution({
+  compilation, elementContributions, loadCase, solverProfile, cache, releasedConstraintIds,
+}) {
   const acceptedCompilation = requireMechanicalModelCompilation(compilation);
   const acceptedLoadCase = requirePhysicalLoadCase(loadCase);
   const acceptedProfile = requireSolverProfile(solverProfile);
   const policies = resolveSolverPolicies(acceptedProfile);
   requireLoadCaseMatchesModel(acceptedLoadCase, acceptedCompilation);
 
-  const model = acceptedCompilation.model;
+  const released = requireReleasedConstraints(acceptedCompilation.model, releasedConstraintIds);
+  const releasedIds = new Set(released.map((constraint) => constraint.constraintId));
+  const model = released.length === 0
+    ? acceptedCompilation.model
+    : Object.freeze({
+      ...acceptedCompilation.model,
+      constraints: Object.freeze(acceptedCompilation.model.constraints
+        .filter((constraint) => !releasedIds.has(constraint.constraintId))),
+    });
   const dofMap = buildDofMap(model);
   const assembly = assembleGlobalSystem({
     model,
@@ -418,7 +457,9 @@ export function compileSolverExecution({ compilation, elementContributions, load
     .filter((entry) => entry.behavior !== INACTIVE_ANALYSIS_DOF_BEHAVIOR)
     .map((entry) => ({ nodeId: entry.nodeId, dof: entry.dof, value: fullResidualVector[entry.globalIndex] }));
   const groundedSpringReactionEntries = groundedSpringReactions(model, dofMap, Ufull);
-  const reactionEntries = [...constrainedReactionEntries, ...groundedSpringReactionEntries]
+  const releasedReactionEntries = released
+    .map((constraint) => ({ nodeId: constraint.nodeId, dof: constraint.dof, value: 0 }));
+  const reactionEntries = [...constrainedReactionEntries, ...groundedSpringReactionEntries, ...releasedReactionEntries]
     .sort((left, right) => compareAscii(`${left.nodeId}:${left.dof}`, `${right.nodeId}:${right.dof}`));
   const displacementEntries = canonicalEntries(Ufull, dofMap, dofMap.nodeOrder);
 

@@ -161,6 +161,7 @@
     "scripts/lfea-piping-wp3-runtime-bundle-intake-check.mjs",
     "scripts/lfea-practical-b31-check.mjs",
     "scripts/lfea-b31-sustained-caesar-comparison.mjs",
+    "scripts/lfea-unilateral-active-set-check.mjs",
     "scripts/lfea-preflight-phase1-indexed-model-check.mjs",
     "scripts/lfea-preflight-phase1-live-ui-check.mjs",
     "scripts/lfea-preflight-phase1-master-authority-check.mjs",

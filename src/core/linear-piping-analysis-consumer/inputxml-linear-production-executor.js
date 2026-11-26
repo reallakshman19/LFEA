@@ -20,8 +20,10 @@ export function executeInputXmlAuthorizedRawCases({
   authorization,
   requestedCaseIds,
   selectedCases,
+  unilateralActiveSet,
 }) {
   const accepted = requireInputXmlLinearPreFeaPreparation(preparation);
+  const activeSet = requireActiveSetRecord(unilateralActiveSet);
   const frameProfile = inputXmlStiffnessFrameElementProfile();
   const solverProfile = inputXmlStiffnessSolverProfile();
   const preflight = accepted.stiffnessPreflight;
@@ -56,11 +58,13 @@ export function executeInputXmlAuthorizedRawCases({
     );
     requireEffectiveStiffnessCustody(accepted, preflight, elements);
 
+    const releasedConstraintIds = releasedConstraintIdsFor(activeSet, caseId);
     const runtimeExecution = compileSolverExecution({
       compilation: accepted.structuralPreparation.compilation,
       elementContributions: elements.elementContributions,
       loadCase: physical.loadCase,
       solverProfile,
+      ...(releasedConstraintIds.length > 0 ? { releasedConstraintIds } : {}),
     });
     const execution = retainedSolverExecution(runtimeExecution);
 
@@ -98,6 +102,9 @@ export function executeInputXmlAuthorizedRawCases({
     solverProfileSemanticHash: solverProfile.semanticHash,
     caseExecutions: cases.map(caseIdentity),
     status,
+    // Present only when an active-set iteration supplied it, so batches
+    // solved without one keep exactly their previous identity.
+    ...(activeSet === null ? {} : { unilateralActiveSet: activeSet }),
   };
   const executionBatchId = `IXRUN-${semanticHash(identity).slice('fnv1a64:'.length).toUpperCase()}`;
   const draft = {
@@ -129,7 +136,28 @@ export function rawExecutionSemanticProjection(record) {
     solverProfileSemanticHash: record.solverProfileSemanticHash,
     caseExecutions: record.caseExecutions.map(caseIdentity),
     status: record.status,
+    unilateralActiveSet: record.unilateralActiveSet,
   };
+}
+
+/**
+ * The one-way support active set (LFEA_UNILATERAL_ACTIVE_SET_ITERATION) names,
+ * per case, the FIXED constraints whose supports lifted off. The solver
+ * validates every named constraint against the sealed compilation.
+ */
+function requireActiveSetRecord(record) {
+  if (record === undefined || record === null) return null;
+  if (typeof record !== 'object' || !Array.isArray(record.cases)
+    || record.cases.some((row) => typeof row?.caseId !== 'string' || !Array.isArray(row.releasedConstraintIds))) {
+    throw executionError('INPUTXML_EXECUTION_UNILATERAL_ACTIVE_SET_INVALID',
+      'A unilateral active-set record must list each case with its released constraint identities.');
+  }
+  return deepFreeze(JSON.parse(JSON.stringify(record)));
+}
+
+function releasedConstraintIdsFor(activeSet, caseId) {
+  const row = activeSet?.cases.find((candidate) => candidate.caseId === caseId);
+  return row ? [...row.releasedConstraintIds] : [];
 }
 
 function retainedSolverExecution(runtimeExecution) {
