@@ -1,6 +1,7 @@
 import { semanticHash } from '../core/shared-piping-model/canonical-json.js';
 import { sealCodeProfile, sealEditionDataset } from '../core/linear-fea-b31-code-engine/index.js';
 import { buildB31SustainedCheck, listB31SustainedCandidates } from './native-b31-authoring.js';
+import { LFEA_PRACTICAL_FITTING_SOURCE, lfeaB31EndFittings, lfeaFittingSummary } from './practical-b31-fittings.js';
 
 /**
  * Practical analysis (docs/PRACTICAL_ANALYSIS_POLICY.md): the B31.3 SUSTAINED
@@ -24,7 +25,7 @@ export function deriveLfeaB31AuthorityInput(preFlight, { scMpa, shMpa }, { weigh
     .filter((row) => !weightOnly || row.caseRole === 'WEIGHT_BASE')
     .filter((row) => !caseIds || caseIds.includes(row.caseId));
   if (!candidates.length) {
-    throw practicalError('LFEA_B31_PRACTICAL_NO_CANDIDATES', 'The model has no straight-pipe elements in a weight case to check.');
+    throw practicalError('LFEA_B31_PRACTICAL_NO_CANDIDATES', 'The model has no straight-pipe, reducer or tee elements in a weight case to check.');
   }
   // One edition dataset per authority: check the material with the most candidates.
   const materialOf = (elementId) => {
@@ -81,10 +82,17 @@ export function deriveLfeaB31AuthorityInput(preFlight, { scMpa, shMpa }, { weigh
     weldJointFactor: declared(1, 'W = 1 assumed'),
     semanticHash: '',
   });
+  const found = lfeaB31EndFittings(preFlight);
   const checks = chosen.rows.map((row) => buildB31SustainedCheck({
     preFlight, elementId: row.elementId, end: row.end, caseId: row.caseId,
     checkId: `B31-SUS-${row.elementId}-${row.end}-${row.caseId}`,
+    fitting: found.fittings.get(`${row.elementId}:${row.end}`) ?? null,
   }));
+  const checked = new Set(chosen.rows.map((row) => `${row.elementId}:${row.end}`));
+  const fittings = lfeaFittingSummary({
+    fittings: new Map([...found.fittings].filter(([key]) => checked.has(key))),
+    unsupported: new Map([...found.unsupported].filter(([key]) => checked.has(key))),
+  });
   return {
     input: {
       parentSourceBundleSemanticHash: preFlight.preparation.sourceBundleSemanticHash,
@@ -92,6 +100,7 @@ export function deriveLfeaB31AuthorityInput(preFlight, { scMpa, shMpa }, { weigh
       codeProfile, editionDataset, checks,
     },
     materialId,
+    fittings,
     skippedMaterialCount: byMaterial.size - 1,
     skippedCheckCount: candidates.length - checks.length,
   };
@@ -116,7 +125,7 @@ function publishPractical(runtime, derived, allowables, note) {
   runtime.authorizeNativeB31Authority({
     reviewerIdentity: LFEA_B31_PRACTICAL_REVIEWER,
     reason: `Practical run: Sc ${allowables.scMpa} MPa, Sh ${allowables.shMpa} MPa entered by user; W = 1; `
-      + 'unity stress factors on straight pipe; sustained wall less corrosion allowance.',
+      + `unity stress factors on straight pipe; ${fittingText(derived.fittings) || 'no reducer or tee ends'}; sustained wall less corrosion allowance.`,
     acceptedAuthoritySemanticHash: staged.authority.semanticHash,
   });
   runtime.publishNativeB31Application();
@@ -124,7 +133,14 @@ function publishPractical(runtime, derived, allowables, note) {
     ? ` ${derived.skippedCheckCount} check(s) on ${derived.skippedMaterialCount} other material(s) not run (one material per check set).`
     : '';
   return `B31.3 sustained check published: ${derived.input.checks.length} check(s), material ${derived.materialId}. `
-    + `Allowables entered by user. NOT ENGINEER-REVIEWED.${note}${skipped}`;
+    + `Allowables entered by user. ${fittingText(derived.fittings) ? `${fittingText(derived.fittings)}. ` : ''}NOT ENGINEER-REVIEWED.${note}${skipped}`;
+}
+
+/** "B31J SIFs at N reducer end(s) and M tee end(s) (LFEA_PRACTICAL_B31_FITTINGS); K fitting end(s) at unity". */
+function fittingText(fittings) {
+  if (!fittings.reducerEnds && !fittings.teeEnds && !fittings.unityFittingEnds) return '';
+  const unity = fittings.unityFittingEnds ? `; ${fittings.unityFittingEnds} fitting end(s) not covered, unity factors` : '';
+  return `B31J SIFs at ${fittings.reducerEnds} reducer end(s) and ${fittings.teeEnds} welding-tee end(s) (${LFEA_PRACTICAL_FITTING_SOURCE})${unity}`;
 }
 
 /** After each Run: repeat the code check if the user has already entered Sc/Sh. */

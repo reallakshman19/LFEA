@@ -1,15 +1,18 @@
 import { semanticHash } from '../core/shared-piping-model/canonical-json.js';
 import { deepFreeze } from '../core/shared-piping-model/immutable.js';
 import { lfeaNativeB31Error } from './native-b31-authority-contract.js';
+import { isLfeaFittingTarget } from './practical-b31-fittings.js';
 
 export const LFEA_NATIVE_B31_CODE_STATION_SCHEMA =
   'lfea-native-b31-code-station-authority/v1';
 
 /**
- * Build code-only station authority for exact straight-pipe spans already
- * represented by one governed B-3.1 frame element. This record owns no
- * stiffness, flexibility, SIF or code equation; it only binds physical code
- * points to exact existing element ends.
+ * Build code-only station authority for exact straight-pipe spans, and for
+ * reducer and tee elements (never bend arcs; practical analysis, checked with
+ * B31J factors from practical-b31-fittings.js), each already represented by
+ * one governed B-3.1 frame element. This record owns no stiffness,
+ * flexibility, SIF or code equation; it only binds physical code points to
+ * exact existing element ends.
  */
 export function createLfeaNativeStraightCodeStationAuthority(preFlight, checks) {
   const structural = preFlight.preparation.structuralPreparation;
@@ -36,15 +39,15 @@ export function createLfeaNativeStraightCodeStationAuthority(preFlight, checks) 
       componentId: elementId,
       sourceFeatureId: binding.sourceFeatureId,
       sourceSegmentId: binding.segmentId,
-      componentType: 'STRAIGHT_PIPE',
+      componentType: binding.componentKind,
       elementId,
       materialStateId: element.materialStateId,
       sectionStateId: element.sectionStateId,
       materialResolutionSemanticHash: binding.materialResolutionSemanticHash,
       analysisSectionSemanticHash: binding.analysisSectionSemanticHash,
       stations: Object.freeze([
-        station(elementId, 'I', element.nodeI, nodeI.position),
-        station(elementId, 'J', element.nodeJ, nodeJ.position),
+        station(elementId, 'I', element.nodeI, nodeI.position, binding.componentKind),
+        station(elementId, 'J', element.nodeJ, nodeJ.position, binding.componentKind),
       ]),
     });
   });
@@ -98,12 +101,13 @@ export function codeStationFor(authority, elementId, end) {
 }
 
 function requireExactStraightBinding(binding) {
+  if (isLfeaFittingTarget(binding)) return;
   if (binding.componentKind !== 'STRAIGHT_PIPE'
     || binding.representabilityDisposition !== 'IMPLEMENTED_EXACTLY'
     || binding.limitationCode !== null) {
     throw lfeaNativeB31Error(
       'LFEA_NATIVE_B31_TARGET_NOT_EXACT_STRAIGHT_PIPE',
-      `Element ${binding.elementId} is not an exact straight-pipe B31 target.`,
+      `Element ${binding.elementId} is not an exact straight-pipe, reducer or tee B31 target.`,
     );
   }
 }
@@ -117,10 +121,10 @@ function requireNode(index, nodeId, elementId) {
   }
   return node;
 }
-function station(elementId, end, nodeId, position) {
+function station(elementId, end, nodeId, position, componentKind) {
   return deepFreeze({
     stationId: `${elementId}.${end}`,
-    kind: `STRAIGHT_PIPE_END_${end}`,
+    kind: `${componentKind}_END_${end}`,
     nodeId,
     position: Object.freeze([position.x, position.y, position.z]),
     arcFraction: null,

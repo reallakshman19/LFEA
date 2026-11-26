@@ -49,14 +49,16 @@ const bm4 = runtimeFor('benchmarks/LFEA/BM4/InputXML_BM4.repaired.xml');
 assert.throws(() => deriveLfeaB31AuthorityInput(bm4.preFlight, { scMpa: '', shMpa: 130 }),
   (error) => error.code === 'LFEA_B31_PRACTICAL_ALLOWABLE_INVALID');
 const bm4Status = runLfeaPracticalB31Check(bm4, { scMpa: 137.9, shMpa: 130 });
-assert.match(bm4Status, /116 check\(s\)/u);
+// 128 since 2026-11-26: reducer and tee elements are checked too (B31J factors).
+assert.match(bm4Status, /128 check\(s\)/u);
+assert.match(bm4Status, /B31J SIFs at 0 reducer end\(s\) and 5 welding-tee end\(s\) \(LFEA_PRACTICAL_B31_FITTINGS\); 9 fitting end\(s\) not covered, unity factors/u);
 assert.match(bm4Status, /NOT ENGINEER-REVIEWED/u);
 const bm4State = bm4.b31.getState();
 assert.equal(bm4State.publicationCurrentness, 'CURRENT');
 assert.equal(bm4State.authorization.reviewerIdentity, LFEA_B31_PRACTICAL_REVIEWER);
 assert.equal(bm4State.authority.editionDataset.sourceIdentity.standard, LFEA_USER_ALLOWABLE_SOURCE);
 const bm4Results = bm4State.application.results;
-assert.equal(bm4Results.length, 116);
+assert.equal(bm4Results.length, 128);
 for (const row of bm4Results) {
   assert.equal(row.codeResult.allowableStress, 130e6, 'SUSTAINED compares against the entered Sh');
   assert.ok(Number.isFinite(row.codeResult.utilization) && row.codeResult.utilization >= 0);

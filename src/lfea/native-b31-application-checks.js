@@ -24,13 +24,19 @@ export function validateLfeaNativeB31CheckParents(preFlight, input, codeStationA
       );
     }
     const sustained = check.sustainedSectionResolution;
+    // A reducer end is checked with the size at that end: allowed only for a
+    // REDUCER element under a reducer-rule factor set, and only for the size
+    // of a pipe the element joins at that end.
+    const reducerEnd = component.componentType === 'REDUCER'
+      && REDUCER_FACTOR_RULE_IDS.includes(check.stressFactorSet.sourceIdentity.ruleId);
     if (sustained.dimensions.outerDiameter !== nominal.dimensions.outerDiameter) {
-      throw lfeaNativeB31Error(
-        'LFEA_NATIVE_B31_SUSTAINED_SECTION_OD_MISMATCH',
-        `B31 check ${check.checkId} sustained section outer diameter differs from nominal B-2.3 authority.`,
-      );
-    }
-    if (sustained.dimensions.wallThickness > nominal.dimensions.wallThickness) {
+      if (!reducerEnd || !joinsSize(preFlight, check, sustained.dimensions.outerDiameter)) {
+        throw lfeaNativeB31Error(
+          'LFEA_NATIVE_B31_SUSTAINED_SECTION_OD_MISMATCH',
+          `B31 check ${check.checkId} sustained section outer diameter differs from nominal B-2.3 authority.`,
+        );
+      }
+    } else if (sustained.dimensions.wallThickness > nominal.dimensions.wallThickness) {
       throw lfeaNativeB31Error(
         'LFEA_NATIVE_B31_SUSTAINED_SECTION_WALL_INVALID',
         `B31 check ${check.checkId} sustained wall cannot exceed nominal wall.`,
@@ -38,6 +44,23 @@ export function validateLfeaNativeB31CheckParents(preFlight, input, codeStationA
     }
   }
   return true;
+}
+
+const REDUCER_FACTOR_RULE_IDS = Object.freeze(['TABLE_1_1_SKETCH_3_1_REDUCER', 'TABLE_D300_REDUCER_UNITY']);
+const SAME_SIZE = 0.01;
+
+/** Does an element joining the check's end node declare (within 1%) this outer diameter? */
+function joinsSize(preFlight, check, outerDiameter) {
+  const structural = preFlight.preparation.structuralPreparation;
+  const binding = structural.segmentBindings.find((row) => row.elementId === check.elementId);
+  const node = check.end === 'I' ? binding?.startNodeId : binding?.endNodeId;
+  const records = new Map((preFlight.diagnostics?.sourceBundle?.elementRecords ?? []).map((row) => [row.sourceFeatureId, row]));
+  const sections = new Map(structural.sectionResolutions.map((row) => [row.semanticHash, row]));
+  return structural.segmentBindings
+    .filter((row) => row.elementId !== check.elementId && (row.startNodeId === node || row.endNodeId === node))
+    .flatMap((row) => [records.get(row.sourceFeatureId)?.fieldEvidence?.DIAMETER?.canonicalValue,
+      sections.get(row.analysisSectionSemanticHash)?.dimensions.outerDiameter])
+    .some((value) => typeof value === 'number' && Math.abs(value - outerDiameter) <= SAME_SIZE * outerDiameter);
 }
 
 /** Bind reviewed check intent to exact retained frame/section/material parents. */

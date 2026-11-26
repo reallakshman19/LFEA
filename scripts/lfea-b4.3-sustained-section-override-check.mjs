@@ -41,6 +41,7 @@ import {
   editionDataset,
   stressFactorSet,
 } from './lfea-b4.0-code-engine-fixtures.mjs';
+import { sealStressFactorSet } from '../src/core/linear-fea-b31-code-engine/index.js';
 
 const TOLERANCE = 1e-12;
 const OUTER_DIAMETER = 0.4064;
@@ -279,6 +280,20 @@ test('B43-T05', 'SUSTAINED refuses an override with a different outer diameter',
     }),
     'CODE_ENGINE_SUSTAINED_SECTION_OVERRIDE_GEOMETRY_MISMATCH',
   );
+});
+
+test('B43-T05R', 'SUSTAINED accepts a different outer diameter only under a reducer-rule factor set (matching pipe at a reducer end)', () => {
+  const reducerFactors = sealStressFactorSet({
+    ...factors,
+    sourceIdentity: { ...factors.sourceIdentity, ruleId: 'TABLE_1_1_SKETCH_3_1_REDUCER' },
+    semanticHash: '',
+  });
+  const result = compileCodeResult({
+    ...categoryArgs('SUSTAINED'),
+    stressFactorSet: reducerFactors,
+    sustainedSectionResolution: mismatchedSection,
+  });
+  assert.ok(Number.isFinite(result.calculatedStress) && result.calculatedStress > 0);
 });
 
 test('B43-T06', 'Package registration runs B4.3 after B4.2 and before downstream consumers', () => {
