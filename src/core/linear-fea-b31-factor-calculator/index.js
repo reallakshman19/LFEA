@@ -29,6 +29,7 @@ export {
   calculateB31JReducerFactors,
   calculateB31JWeldingTeeFactors,
   calculateBendFactors,
+  calculateLegacyWeldedOnFittingFactors,
   calculateLegacyWeldingTeeFactors,
 } from './equations.js';
 

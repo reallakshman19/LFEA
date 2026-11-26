@@ -51,7 +51,7 @@ assert.throws(() => deriveLfeaB31AuthorityInput(bm4.preFlight, { scMpa: '', shMp
 const bm4Status = runLfeaPracticalB31Check(bm4, { scMpa: 137.9, shMpa: 130 });
 // 128 since 2026-11-26: reducer and tee elements are checked too (B31J factors).
 assert.match(bm4Status, /128 check\(s\)/u);
-assert.match(bm4Status, /B31J SIFs at 0 reducer end\(s\) and 5 welding-tee end\(s\) \(LFEA_PRACTICAL_B31_FITTINGS\); 9 fitting end\(s\) not covered, unity factors/u);
+assert.match(bm4Status, /B31J SIFs at 0 reducer end\(s\) and 5 welding-tee end\(s\) \(LFEA_PRACTICAL_B31_FITTINGS\); B31\.3 Table D300 SIFs at 8 weldolet run end\(s\), LFEA default, no B31J weldolet equations; 1 fitting end\(s\) not covered, unity factors/u);
 assert.match(bm4Status, /NOT ENGINEER-REVIEWED/u);
 const bm4State = bm4.b31.getState();
 assert.equal(bm4State.publicationCurrentness, 'CURRENT');

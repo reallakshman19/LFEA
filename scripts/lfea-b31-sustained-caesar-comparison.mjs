@@ -134,10 +134,13 @@ const bm4 = compare('BM4', runtimeFor(inputXmlPreFlight('benchmarks/LFEA/BM4/Inp
 // is the reducer 22000-22010 J: the BM4 InputXML export carries no reducer
 // record, so LFEA checks that element as plain 168.3 mm pipe; BM4_L below
 // shows the same end at 0.9% once CAESAR's reducer record is present.
+// Re-measured 2026-11-26 with weldolet run ends at the B31.3 Table D300
+// welded-on fitting SIF (labelled LFEA default): within 1% 58 -> 62, within
+// 5% 107 -> 109, worst 29.7% unchanged.
 assert.equal(bm4.checks, 126);
 assert.deepEqual(bm4.unmapped, ['20150-20160 I', '20150-20160 J']);
 assert.ok(bm4.slpWithin0p1Pct >= 122, 'BM4 pressure term equals CAESAR SLP except at the 4 unrecorded reducer ends');
-assert.ok(bm4.within1Pct >= 58 && bm4.within5Pct >= 107 && bm4.maxPct <= 29.7, 'BM4 sustained stress tolerance');
+assert.ok(bm4.within1Pct >= 62 && bm4.within5Pct >= 109 && bm4.maxPct <= 29.7, 'BM4 sustained stress tolerance');
 
 if (existsSync(BM4L_ACCDB)) {
   const MDBReaderModule = await import('mdb-reader');
@@ -157,12 +160,15 @@ if (existsSync(BM4L_ACCDB)) {
   // worst 3.4%. Reducers and tees: 32 ends, 18 within 1%, all within 5%, worst
   // 4.7% (a weldolet run end, CAESAR SIF 1.527, unity here). Pressure term
   // equals CAESAR SLP at every end, the reducer small ends included.
+  // Re-measured 2026-11-26 with weldolet run ends at the B31.3 Table D300
+  // welded-on fitting SIF: within 1% 106 -> 112 (fittings 18 -> 24), worst
+  // 4.7% -> 3.6%.
   assert.equal(bm4l.checks, 128);
   assert.equal(bm4l.unmapped.length, 4, 'BM4_L: only the two split bend-lead tee elements lack a CAESAR row');
   assert.equal(bm4l.slpWithin0p1Pct, 128, 'BM4_L pressure term equals CAESAR SLP everywhere');
-  assert.ok(bm4l.within1Pct >= 106 && bm4l.within5Pct === 128 && bm4l.maxPct <= 4.7, 'BM4_L sustained stress tolerance');
+  assert.ok(bm4l.within1Pct >= 112 && bm4l.within5Pct === 128 && bm4l.maxPct <= 3.6, 'BM4_L sustained stress tolerance');
   assert.equal(bm4l.fittings.checks, 32);
-  assert.equal(bm4l.fittings.within5Pct, 32, 'BM4_L: every reducer and tee end within 5% of CAESAR');
+  assert.equal(bm4l.fittings.within5Pct, 32, 'BM4_L: every reducer, tee and weldolet end within 5% of CAESAR');
 
   // Factors against CAESAR's own SIFs. Welding-tee run ends reproduce CAESAR's
   // sustained indices; reducers use CAESAR's ALPHA where given and the
@@ -175,6 +181,7 @@ if (existsSync(BM4L_ACCDB)) {
   };
   let teeRunEnds = 0;
   let reducerEnds = 0;
+  let weldoletEnds = 0;
   for (const [key, fitting] of found.fittings) {
     const [elementId, end] = key.split(':');
     const binding = structural.segmentBindings.find((row) => row.elementId === elementId);
@@ -182,7 +189,12 @@ if (existsSync(BM4L_ACCDB)) {
     const sustained = fitting.stressFactorSet.sustainedIndices;
     const larger = Math.max(sustained.inPlaneBending.value, sustained.outOfPlaneBending.value);
     const ratio = larger / sifAt(elementId, end);
-    if (fitting.kind === 'WELDING_TEE') {
+    if (fitting.kind === 'WELDOLET') {
+      // CAESAR's B31J weldolet run SIFs (1.518, 1.527) vs Table D300's
+      // 0.9 / h^(2/3): 1.2-2.4% lower here. Unity was 34-35% lower.
+      weldoletEnds += 1;
+      assert.ok(ratio > 0.97 && ratio < 1, `${key} weldolet SIF ${larger} vs CAESAR ${sifAt(elementId, end)}`);
+    } else if (fitting.kind === 'WELDING_TEE') {
       teeRunEnds += 1;
       assert.ok(Math.abs(ratio - 1) < 0.005, `${key} tee index ${larger} vs CAESAR ${sifAt(elementId, end)}`);
     } else {
@@ -192,7 +204,9 @@ if (existsSync(BM4L_ACCDB)) {
   }
   assert.equal(teeRunEnds, 4, 'BM4_L welding-tee run ends compared with CAESAR (the two branch ends have no CAESAR row)');
   assert.equal(reducerEnds, 8, 'BM4_L reducer ends compared with CAESAR');
-  assert.equal(found.unsupported.size, 9, 'BM4_L: 8 weldolet ends and the two-leg tee at 20700 stay at unity');
+  assert.equal(weldoletEnds, 8, 'BM4_L weldolet run ends compared with CAESAR (4 weldolets, branch not modelled)');
+  assert.deepEqual([...found.unsupported.values()].map((note) => note.split(':')[0]), ['fitting at 20700 (CAESAR SIF type 3)'],
+    'BM4_L: only the two-leg tee at 20700 stays at unity');
 } else {
   console.log(JSON.stringify({ name: 'BM4_L', status: 'SKIPPED_MODEL_NOT_PRESENT', requiredModel: BM4L_ACCDB }));
 }

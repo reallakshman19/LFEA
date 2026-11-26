@@ -104,6 +104,22 @@ export function calculateLegacyWeldingTeeFactors(geometry) {
   };
 }
 
+/**
+ * B31.3 Appendix D Table D300, branch welded-on fitting (integrally
+ * reinforced): h = 3.3 T / r2 on the matching (run) pipe, k = 1,
+ * i_o = i_i = 0.9 / h^(2/3); no torsional or axial SIF.
+ */
+export function calculateLegacyWeldedOnFittingFactors(geometry) {
+  const runMeanRadius = (geometry.runOuterDiameter - geometry.runWallThickness) / 2;
+  const h = 3.3 * geometry.runWallThickness / runMeanRadius;
+  const sif = minimumOne(0.9 / h ** (2 / 3));
+  return {
+    flexibilityCharacteristic: h,
+    runMeanRadius,
+    displacementSifs: { axial: 1, torsional: 1, inPlaneBending: sif, outOfPlaneBending: sif },
+  };
+}
+
 export function calculateB31JWeldingTeeFactors(geometry) {
   const R = (geometry.runOuterDiameter - geometry.runWallThickness) / 2;
   const T = geometry.runWallThickness;
