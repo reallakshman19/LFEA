@@ -91,16 +91,16 @@ assert.ok(
 // Restraints.
 const nodeById = Object.fromEntries(geometry.nodes.map((node) => [node.id, node]));
 assert.equal(nodeById['10'].restraint, 'ANCHOR');
-// RES_TYPEID 3 is CAESAR's "+Y" (evidenced in
-// accdb-restraint-type-correspondence.js), so this node carries a real
+// RES_TYPEID 3 is CAESAR's two-way "Y" (the ACCDB's own RESTRAINT_TYPES table;
+// see accdb-restraint-type-correspondence.js), so this node carries a real
 // restraint kind. Before that correspondence existed every non-anchor ACCDB
 // restraint read as UNKNOWN -- the model could not tell a support from
 // nothing.
 assert.equal(nodeById['40'].restraint, 'GUIDE');
 const node40Restraint = nodeById['40'].meta.restraints[0];
 assert.equal(node40Restraint.sourceTypeCode, '3', 'The raw ACCDB code is retained as evidence.');
-assert.equal(node40Restraint.typeCode, '14', 'RES_TYPEID 3 corresponds to corrected type code 14 (+Y).');
-assert.equal(node40Restraint.typeLabel, '+Y');
+assert.equal(node40Restraint.typeCode, '3', 'RES_TYPEID 3 corresponds to corrected type code 3 (two-way Y).');
+assert.equal(node40Restraint.typeLabel, 'Y');
 
 // A restraint kind with no evidenced correspondence must fail closed: an
 // omitted or misread support changes the load path and every reaction after

@@ -163,10 +163,14 @@ if (existsSync(BM4L_ACCDB)) {
   // Re-measured 2026-11-26 with weldolet run ends at the B31.3 Table D300
   // welded-on fitting SIF: within 1% 106 -> 112 (fittings 18 -> 24), worst
   // 4.7% -> 3.6%.
+  // Re-measured 2026-11-26 with ACCDB restraint code 3 read as two-way Y (the
+  // ACCDB's own RESTRAINT_TYPES table) instead of +Y: CAESAR holds 20090 down
+  // in CASE 6 where LFEA had lifted it off. Within 1% 112 -> 122 (fittings
+  // 24 -> 30), worst 3.6% -> 2.0%.
   assert.equal(bm4l.checks, 128);
   assert.equal(bm4l.unmapped.length, 4, 'BM4_L: only the two split bend-lead tee elements lack a CAESAR row');
   assert.equal(bm4l.slpWithin0p1Pct, 128, 'BM4_L pressure term equals CAESAR SLP everywhere');
-  assert.ok(bm4l.within1Pct >= 112 && bm4l.within5Pct === 128 && bm4l.maxPct <= 3.6, 'BM4_L sustained stress tolerance');
+  assert.ok(bm4l.within1Pct >= 122 && bm4l.within5Pct === 128 && bm4l.maxPct <= 2.0, 'BM4_L sustained stress tolerance');
   assert.equal(bm4l.fittings.checks, 32);
   assert.equal(bm4l.fittings.within5Pct, 32, 'BM4_L: every reducer, tee and weldolet end within 5% of CAESAR');
 

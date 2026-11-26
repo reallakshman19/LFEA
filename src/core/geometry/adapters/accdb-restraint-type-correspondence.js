@@ -27,7 +27,16 @@ export const ACCDB_RESTRAINT_TYPE_CORRESPONDENCE_AUTHORITY =
  *     node-for-node with the ACCDB rows in file order, giving the label
  *     directly rather than through anyone's interpretation of a code.
  *
- * That evidence covers exactly the four codes BM4_L uses. Every other
+ * Correction (2026-11-26): code 3 is "Y" (two-way), not "+Y". The pairing
+ * above matched rows on node and cosines only; the "+Y" label came from
+ * Output_BM4.xml, which is the BM4 InputXML job, not BM4_L. BM4_L's own
+ * RESTRAINT_TYPES table names 3 = "Y" and 14 = "+Y"; its OUTPUT_RESTRAINTS
+ * prints "Rigid Y" for every one of those supports; and its CASE 6 (W+P1)
+ * holds 20090 down by 1.66 kN, which a +Y cannot. Read as +Y, LFEA lifted
+ * 20090, 21470, 21610 and 20350 off in the operating case while CAESAR held
+ * them. Code 14 ("+Y" in the same table) is added so a real +Y still resolves.
+ *
+ * That evidence covers exactly the codes listed here. Every other
  * RES_TYPEID is genuinely unknown here: `accdbRestraintTypeCorrespondence`
  * returns null for it, and the caller must fail closed. A restraint whose
  * kind is unknown must never be modelled as some default -- an omitted or
@@ -37,7 +46,8 @@ export const ACCDB_RESTRAINT_TYPE_CORRESPONDENCE_AUTHORITY =
  */
 const CORRESPONDENCE = Object.freeze({
   1: Object.freeze({ label: 'ANC', correctedTypeCode: '0' }),
-  3: Object.freeze({ label: '+Y', correctedTypeCode: '14' }),
+  3: Object.freeze({ label: 'Y', correctedTypeCode: '3' }),
+  14: Object.freeze({ label: '+Y', correctedTypeCode: '14' }),
   8: Object.freeze({ label: 'GUI', correctedTypeCode: '9' }),
   9: Object.freeze({ label: 'LIM', correctedTypeCode: '8' }),
 });
@@ -48,6 +58,7 @@ export const ACCDB_RESTRAINT_TYPE_CORRESPONDENCE_PROFILE = Object.freeze({
   evidence: Object.freeze([
     'BM4_L.ACCDB INPUT_RESTRAINTS (46 rows) paired 1:1 with InputXML_BM4.xml <RESTRAINT> on (node, cosines).',
     'Output_BM4.xml RESTRAINT_REPORT names all 46 in CAESAR\'s own labels, aligned node-for-node in file order.',
+    'BM4_L.ACCDB RESTRAINT_TYPES names 1 ANC, 3 Y, 8 GUI, 9 LIM, 14 +Y; its OUTPUT_RESTRAINTS prints "Rigid Y" at every code-3 support.',
   ]),
   rows: CORRESPONDENCE,
 });
