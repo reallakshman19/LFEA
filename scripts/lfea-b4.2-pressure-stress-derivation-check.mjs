@@ -20,8 +20,8 @@ import {
   compileLinearPipingB31Application,
 } from '../src/core/linear-piping-code-application/index.js';
 import {
-  PRESSURE_EFFECT_NOT_IMPLEMENTED_CODE,
   PRESSURE_STRESS_CONFLICT_CODE,
+  derivePressureStressContribution,
 } from '../src/core/linear-piping-code-application/pressure-stress-derivation.js';
 import {
   codeProfile,
@@ -221,8 +221,8 @@ const frameElement = reducerFrameElementE1(component);
 const sectionResolution = reducerSectionResolutionE1();
 const pressureCase = pressureLoadCase(compilation);
 const pressureAnalysis = analysisFor(compilation, component, pressureCase, 'ANALYSIS-B42-PRESSURE');
-const expectedPressureStress = (PRESSURE * sectionResolution.dimensions.outerDiameter)
-  / (4 * sectionResolution.dimensions.wallThickness);
+const { outerDiameter: DO, innerDiameter: DI } = sectionResolution.dimensions;
+const expectedPressureStress = (PRESSURE * DI * DI) / (DO * DO - DI * DI);
 const pressureContext = {
   loadCase: pressureCase,
   analysis: pressureAnalysis,
@@ -260,46 +260,6 @@ test('B42-T03', 'A conflicting explicit pressure contribution fails closed', () 
   return { errorCode: PRESSURE_STRESS_CONFLICT_CODE, supplied, expectedPressureStress };
 });
 
-test('B42-T04', 'Unimplemented authorized pressure effects are blocking limitations', () => {
-  const loadCase = pressureLoadCase(
-    compilation,
-    { pressureStiffening: true, axialThrust: true },
-    {
-      loadCaseId: 'LC-B42-UNIMPLEMENTED-EFFECTS',
-      primitives: [
-        reducerTipLoadPrimitive(),
-        pressurePrimitive(
-          { pressureStiffening: true, axialThrust: true },
-          { primitiveId: 'LP-B42-PRESSURE-UNIMPLEMENTED' },
-        ),
-      ],
-    },
-  );
-  const analysis = analysisFor(compilation, component, loadCase, 'ANALYSIS-B42-UNIMPLEMENTED');
-  assert.throws(
-    () => compileLinearPipingB31Application(b31Request({
-      loadCase,
-      analysis,
-      frameElement,
-      sectionResolution,
-      checkId: 'B42-UNIMPLEMENTED',
-    })),
-    (error) => {
-      assert.equal(error?.code, PRESSURE_EFFECT_NOT_IMPLEMENTED_CODE);
-      assert.deepEqual(
-        error?.evidence?.limitations?.map((entry) => entry.effect),
-        ['pressureStiffening', 'axialThrust'],
-      );
-      error.evidence.limitations.forEach((entry) => assert.equal(entry.status, 'BLOCKED'));
-      return true;
-    },
-  );
-  return {
-    errorCode: PRESSURE_EFFECT_NOT_IMPLEMENTED_CODE,
-    effects: ['pressureStiffening', 'axialThrust'],
-  };
-});
-
 test('B42-T05', 'No PRESSURE primitive preserves explicit caller-supplied behavior', () => {
   const loadCase = reducerTipLoadCase(compilation, {
     loadCaseId: 'LC-B42-NO-PRESSURE',
@@ -323,11 +283,33 @@ test('B42-T05', 'No PRESSURE primitive preserves explicit caller-supplied behavi
   return { supplied, actual };
 });
 
+test('B42-T04', 'Solver-applied stiffening/thrust/Bourdon add the code term once, disclosed', () => {
+  const effects = { pressureStiffening: true, axialThrust: true, bourdon: true };
+  const loadCase = pressureLoadCase(compilation, effects, {
+    loadCaseId: 'LC-B42-SOLVER-APPLIED',
+    primitives: [
+      reducerTipLoadPrimitive(),
+      pressurePrimitive(effects, { primitiveId: 'LP-B42-PRESSURE-SOLVER-APPLIED' }),
+    ],
+  });
+  const analysis = analysisFor(compilation, component, loadCase, 'ANALYSIS-B42-SOLVER-APPLIED');
+  const application = compileLinearPipingB31Application(b31Request({
+    loadCase, analysis, frameElement, sectionResolution, checkId: 'B42-SOLVER-APPLIED',
+  }));
+  const { codeResult } = application.results[0];
+  assertClose(codeResult.stressTerms.pressure, expectedPressureStress, RELATIVE_TOLERANCE, 'pressure term');
+  const derived = derivePressureStressContribution({
+    pressurePrimitive: loadCase.primitives.find((row) => row.kind === 'PRESSURE'), sectionResolution,
+  });
+  assert.match(derived.source, /:SOLVER_APPLIED_pressureStiffening\+axialThrust\+bourdon$/u);
+  return { pressureStress: codeResult.stressTerms.pressure, effects: Object.keys(effects) };
+});
+
 console.log(JSON.stringify({
   check: 'lfea-b4.2-pressure-stress-derivation',
   status: 'PASS',
   tolerance: RELATIVE_TOLERANCE,
-  formula: 'S = P * Do / (4 * t)',
+  formula: 'S = P * di^2 / (Do^2 - di^2)',
   pressure: PRESSURE,
   outerDiameter: sectionResolution.dimensions.outerDiameter,
   wallThickness: sectionResolution.dimensions.wallThickness,

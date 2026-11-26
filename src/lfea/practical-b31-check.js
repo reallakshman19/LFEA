@@ -13,7 +13,6 @@ export const LFEA_USER_ALLOWABLE_SOURCE = 'LFEA_USER_ENTERED_ALLOWABLES';
 export const LFEA_B31_PRACTICAL_REVIEWER = 'NOT ENGINEER-REVIEWED (LFEA user allowables)';
 export const LFEA_B31_REFERENCE_COLD_TEMPERATURE_K = 294.26; // 70 °F, the B31.3 Sc reference temperature
 const MPA = 1e6;
-const PRESSURE_EFFECT_NOT_IMPLEMENTED = 'PIPING_B31_PRESSURE_EFFECT_NOT_IMPLEMENTED';
 
 /** Build a B31 authority input, or throw with a plain message. */
 export function deriveLfeaB31AuthorityInput(preFlight, { scMpa, shMpa }, { weightOnly = false, caseIds = null } = {}) {
@@ -109,15 +108,7 @@ export function runLfeaPracticalB31Check(runtime, allowables) {
   if (!caseIds.length) throw practicalError('LFEA_B31_PRACTICAL_RUN_REQUIRED', 'Run the analysis first, then run the code check.');
   deriveLfeaB31AuthorityInput(preFlight, allowables, { weightOnly: true }); // validates Sc/Sh and model
   runtime.practicalB31Allowables = { scMpa: Number(allowables.scMpa), shMpa: Number(allowables.shMpa) };
-  try {
-    return publishPractical(runtime, deriveLfeaB31AuthorityInput(preFlight, allowables, { caseIds }), allowables, '');
-  } catch (error) {
-    if (error?.code !== PRESSURE_EFFECT_NOT_IMPLEMENTED) throw error;
-    // Pressure cases need axial-thrust/Bourdon code terms LFEA does not implement yet:
-    // check the weight case alone and say so, rather than stopping.
-    return publishPractical(runtime, deriveLfeaB31AuthorityInput(preFlight, allowables, { weightOnly: true, caseIds }),
-      allowables, ' Weight+pressure cases not checked: pressure axial thrust/Bourdon code terms are not implemented yet.');
-  }
+  return publishPractical(runtime, deriveLfeaB31AuthorityInput(preFlight, allowables, { caseIds }), allowables, '');
 }
 
 function publishPractical(runtime, derived, allowables, note) {
@@ -125,7 +116,7 @@ function publishPractical(runtime, derived, allowables, note) {
   runtime.authorizeNativeB31Authority({
     reviewerIdentity: LFEA_B31_PRACTICAL_REVIEWER,
     reason: `Practical run: Sc ${allowables.scMpa} MPa, Sh ${allowables.shMpa} MPa entered by user; W = 1; `
-      + 'unity stress factors on straight pipe.',
+      + 'unity stress factors on straight pipe; sustained wall less corrosion allowance.',
     acceptedAuthoritySemanticHash: staged.authority.semanticHash,
   });
   runtime.publishNativeB31Application();

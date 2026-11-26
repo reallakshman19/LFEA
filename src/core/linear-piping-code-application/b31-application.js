@@ -172,7 +172,10 @@ function compileCheck(source, index, caseIndex, codeProfile, editionDataset) {
     : resolvePressureStressContribution({
       loadCase: requireCase(caseIndex, actionSource.caseId).loadCase,
       frameElementRecord: acceptedSource.frameElementRecord,
-      sectionResolution: acceptedSource.sectionResolution,
+      // SUSTAINED stresses use the nominal-less-allowances section when cited.
+      sectionResolution: category === 'SUSTAINED' && acceptedSource.sustainedSectionResolution !== null
+        ? acceptedSource.sustainedSectionResolution
+        : acceptedSource.sectionResolution,
       suppliedContribution: acceptedSource.pressureStressContribution,
     });
   const codeResult = compileCodeResult({

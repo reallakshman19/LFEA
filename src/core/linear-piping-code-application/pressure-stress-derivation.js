@@ -11,16 +11,26 @@ export const PRESSURE_EFFECT_NOT_IMPLEMENTED_CODE = 'PIPING_B31_PRESSURE_EFFECT_
 export const PRESSURE_BASIS_NOT_DERIVABLE_CODE = 'PIPING_B31_PRESSURE_BASIS_NOT_DERIVABLE';
 export const PRESSURE_CODE_STRESS_NOT_AUTHORIZED_CODE = 'PIPING_B31_PRESSURE_CODE_STRESS_NOT_AUTHORIZED';
 export const LONGITUDINAL_PRESSURE_STRESS_FORMULA_ID =
-  'THIN_WALL_LONGITUDINAL_PRESSURE_STRESS_OD_V1';
+  'B31_3_LONGITUDINAL_PRESSURE_STRESS_AREA_RATIO_V1';
 
-const UNIMPLEMENTED_PRESSURE_EFFECT_CODES = Object.freeze({
-  pressureStiffening: 'PIPING_B31_PRESSURE_STIFFENING_NOT_IMPLEMENTED',
-  axialThrust: 'PIPING_B31_PRESSURE_AXIAL_THRUST_NOT_IMPLEMENTED',
-  bourdon: 'PIPING_B31_PRESSURE_BOURDON_NOT_IMPLEMENTED',
-});
+// Every pressure effect the load-case contract can authorize is applied by the
+// solver today (see SOLVER_APPLIED_PRESSURE_EFFECTS). The refusal path stays so
+// a future effect the solver does not apply is blocked, never dropped.
+const UNIMPLEMENTED_PRESSURE_EFFECT_CODES = Object.freeze({});
 const UNIMPLEMENTED_PRESSURE_EFFECTS = Object.freeze(
   Object.keys(UNIMPLEMENTED_PRESSURE_EFFECT_CODES),
 );
+/**
+ * Effects of pressure that the linear solver applies itself: axialThrust is
+ * the closed-end pressure elongation initial strain (frame-element.js),
+ * bourdon is the bend Bourdon augmentation, and pressureStiffening reduces
+ * bend flexibility (bend-component.js; no effect on straight pipe). A bend SIF
+ * supplied without the pressure correction is conservative. Their
+ * consequences are already inside the solved member forces, which exclude the
+ * internally balanced end-cap thrust, so the code term S = P*Do/(4t) is added
+ * once and nothing is counted twice. They are disclosed in the source string.
+ */
+export const SOLVER_APPLIED_PRESSURE_EFFECTS = Object.freeze(['pressureStiffening', 'axialThrust', 'bourdon']);
 
 function requirePressurePrimitive(value) {
   const primitive = requireLoadPrimitive(value);
@@ -58,11 +68,15 @@ function requireNoUnsupportedEffects(primitive) {
 }
 
 /**
- * Derive the thin-wall longitudinal pressure-stress contribution for one pipe.
+ * Derive the longitudinal pressure-stress contribution for one pipe.
  *
- * The convention is S = P * Do / (4 * t), using gauge pressure and the outer
- * diameter / nominal wall thickness retained by the sealed B-2.3 section
- * resolution. No section property is reconstructed in this package.
+ * ASME B31.3 counts pressure in the sustained longitudinal force Fa, so the
+ * stress is the end-cap force over the metal area:
+ * S = P * di^2 / (Do^2 - di^2), with di = Do - 2t, using gauge pressure and
+ * the dimensions retained by the sealed B-2.3 section resolution passed in
+ * (for SUSTAINED, the nominal-less-allowances section when one is cited).
+ * This is the form CAESAR II reports as SLP. The thin-wall P * Do / (4 * t)
+ * is the B31.1 form and is not used. No section property is reconstructed.
  *
  * @param {object} args
  * @param {Readonly<object>} args.pressurePrimitive Sealed PRESSURE primitive.
@@ -92,8 +106,9 @@ export function derivePressureStressContribution({ pressurePrimitive, sectionRes
     );
   }
 
-  const { outerDiameter, wallThickness } = section.dimensions;
-  const value = (primitive.pressure * outerDiameter) / (4 * wallThickness);
+  const { outerDiameter, innerDiameter } = section.dimensions;
+  const innerSquared = innerDiameter * innerDiameter;
+  const value = (primitive.pressure * innerSquared) / (outerDiameter * outerDiameter - innerSquared);
   if (!Number.isFinite(value)) {
     failCodeApplication(
       'Derived longitudinal pressure stress is non-finite.',
@@ -101,9 +116,12 @@ export function derivePressureStressContribution({ pressurePrimitive, sectionRes
       { primitiveId: primitive.primitiveId, elementId: primitive.elementId },
     );
   }
+  const solverApplied = SOLVER_APPLIED_PRESSURE_EFFECTS
+    .filter((effect) => primitive.authorizedEffects[effect] === true);
+  const disclosure = solverApplied.length ? `:SOLVER_APPLIED_${solverApplied.join('+')}` : '';
   return deepFreeze({
     value,
-    source: `${LONGITUDINAL_PRESSURE_STRESS_FORMULA_ID}:${primitive.primitiveId}:${primitive.semanticHash}:${section.semanticHash}`,
+    source: `${LONGITUDINAL_PRESSURE_STRESS_FORMULA_ID}:${primitive.primitiveId}:${primitive.semanticHash}:${section.semanticHash}${disclosure}`,
   });
 }
 

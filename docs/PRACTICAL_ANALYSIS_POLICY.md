@@ -50,20 +50,46 @@ BM4 (97 nodes), real CAESAR II model:
 Support loads: BM4 derives and resolves all 30 supports, and BM1 all 10.
 `scripts/lfea-derived-support-publication-check.mjs` checks this.
 
-B31 code check: BM4 publishes 116 sustained checks and BM1 publishes 18.
-`scripts/lfea-practical-b31-check.mjs` checks this. Why the allowables
-are typed in: BM1 and BM4 leave every `ALLOWABLESTRESS` value at CAESAR's
-"not set" sentinel (-1.0101), and ASME tables are licensed, so LFEA ships
-none.
+B31 code check: BM4 publishes 116 sustained checks (weight case) and BM1
+publishes 36 (W and W+P). `scripts/lfea-practical-b31-check.mjs` checks this.
+Why the allowables are typed in: BM1 and BM4 leave every `ALLOWABLESTRESS`
+value at CAESAR's "not set" sentinel (-1.0101), and ASME tables are licensed,
+so LFEA ships none.
+
+Sustained pressure term (B31.3 form, matching CAESAR II):
+
+- The longitudinal pressure stress is P·di²/(Do²−di²), the end-cap force over
+  the metal area. P·Do/4t, the B31.1 form, is no longer used.
+- Sustained stresses use the nominal wall less the model's `CORR_ALLOW`,
+  explicit or inherited. The section source is
+  `LFEA_NOMINAL_LESS_CORROSION_ALLOWANCE`, and the check's section basis
+  states the value. Mill tolerance is not deducted, which matches CAESAR.
+- Pressure elongation (axial thrust), Bourdon and pressure stiffening are
+  applied by the solver. They are disclosed in the pressure term's source
+  (`SOLVER_APPLIED_…`) and no longer stop the check.
+
+Comparison with CAESAR SUS (W+P), checked by
+`scripts/lfea-b31-sustained-caesar-comparison.mjs`:
+
+| Model | W+P checks | Pressure term = CAESAR SLP | Within 1% | Within 5% | Worst |
+|---|---|---|---|---|---|
+| BM1 | 18 | 18 | 10 | 16 | 13.2% (40-45, next to a bend) |
+| BM4 | 116 | 112 | 55 | 103 | 29.7% |
+
+The remaining differences are in the moments, not the code check:
+
+- **BM4:** CAESAR lifts off the "+Y" supports and LFEA does not (see the
+  support limit below).
+- **BM1:** the moments next to the bend at 48–50 differ.
+- **BM4, 4 ends at tees:** CAESAR applies the tee SIF and branch section;
+  LFEA checks these ends as plain pipe.
 
 Known B31 limits, all stated in the status line:
 
-- If a case's pressure loads also authorize axial-thrust or Bourdon code
-  terms (not implemented), the pressure cases are skipped and only the
-  weight case is checked.
 - Each check set covers one material, the one with the most elements.
 - Bends and tees are not checked yet. The native boundary covers straight
-  pipe only.
+  pipe only, and an end at a tee is checked with i = 1.
+- BM4 runs only its weight case unless W+P is requested.
 
 Known limit: derived supports mirror the solver's linear constraints. A
 CAESAR "+Y" (one-way) support is therefore reported as two-way, and can show

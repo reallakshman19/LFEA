@@ -65,7 +65,15 @@ console.log(`BM4 PASS ${bm4Status}`);
 
 const bm1 = runtimeFor('benchmarks/LFEA/BM1/BM1_InputXML.xml', ['IXP-W', 'IXP-WP']);
 const bm1Status = runLfeaPracticalB31Check(bm1, { scMpa: 137.9, shMpa: 130 });
-assert.match(bm1Status, /Weight\+pressure cases not checked/u, 'BM1 pressure case falls back with a disclosed note');
+assert.match(bm1Status, /36 check\(s\)/u, 'BM1 checks both the weight and the weight+pressure case');
+assert.doesNotMatch(bm1Status, /not checked/u);
+const bm1Results = bm1.b31.getState().application.results;
+const sp = bm1Results.filter((row) => row.codeResult.stressTerms.pressure > 0);
+assert.equal(sp.length, 18, 'every W+P check carries the P*Do/(4t) term');
+for (const row of bm1Results) {
+  const pressureCase = row.codeResult.stressTerms.pressure > 0;
+  assert.equal(pressureCase, row.checkId.endsWith('IXP-WP'), `${row.checkId} pressure term only in W+P`);
+}
 assert.equal(bm1.b31.getState().publicationCurrentness, 'CURRENT');
 console.log(`BM1 PASS ${bm1Status}`);
 console.log('LFEA practical B31 check PASS');

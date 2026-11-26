@@ -35,9 +35,9 @@ reject(/Math\.PI[\s\S]*outerDiameter|wallThickness\s*\*/u, 'section-property re-
 assert.match(source.derivation, /requirePipeSectionResolution/u);
 assert.match(source.derivation, /section\.dimensions/u);
 assert.match(source.derivation, /outerDiameter/u);
-assert.match(source.derivation, /wallThickness/u);
-assert.match(source.derivation, /primitive\.pressure\s*\*\s*outerDiameter/u);
-assert.match(source.derivation, /4\s*\*\s*wallThickness/u);
+assert.match(source.derivation, /innerDiameter/u);
+assert.match(source.derivation, /primitive\.pressure\s*\*\s*innerSquared/u);
+assert.match(source.derivation, /outerDiameter\s*\*\s*outerDiameter\s*-\s*innerSquared/u);
 
 reject(
   /(?:continue|return)\s*;?\s*\/\/\s*(?:skip|ignore)/iu,
