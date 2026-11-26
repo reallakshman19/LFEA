@@ -95,6 +95,9 @@ test.describe('LFEA standalone governed browser journey', () => {
     await expect(results.getByText(/DERIVED from the model restraints used by the solve/u).first()).toBeVisible();
     await expect(results.getByText('GOVERNED_INTERFACE_SET_REQUIRED')).toHaveCount(0);
     await expect(results.getByText('COMPONENT_CODE_POINT_RECOVERY_REQUIRED').first()).toBeVisible();
+    // One-way supports: the active-set basis is always stated on Results.
+    await expect(results.locator('[data-role="lfea-results-unilateral-basis"]'))
+      .toContainText('LFEA_UNILATERAL_ACTIVE_SET_ITERATION');
     await createDossier(page);
 
     let runs = await historyRunIds(page);

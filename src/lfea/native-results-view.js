@@ -2,6 +2,7 @@ import {
   LINEAR_FEA_UNITS,
   TRANSLATIONAL_DOFS,
 } from '../core/linear-fea-contract/index.js';
+import { lfeaUnilateralActiveSetLabel } from './unilateral-active-set.js';
 
 const ACTION_FIELDS = Object.freeze(['fx', 'fy', 'fz', 'mx', 'my', 'mz']);
 
@@ -59,6 +60,11 @@ function render(
   }
 
   const batch = resultsState.results;
+  const activeSet = executionState?.execution?.unilateralActiveSet ?? null;
+  const basisTable = factTable(doc, [['One-way support basis', lfeaUnilateralActiveSetLabel(activeSet)]]);
+  basisTable.dataset.role = 'lfea-results-unilateral-basis';
+  basisTable.dataset.status = activeSet?.status ?? 'NONE';
+  section.append(basisTable);
   section.append(factTable(doc, [
     ['Recovery batch', batch.recoveryBatchId],
     ['Recovery status', batch.status],
@@ -78,7 +84,7 @@ function render(
     section.append(casePanel(doc, rawCase, caseResult));
   }
   if (supportPublicationState) {
-    section.append(supportPublicationPanel(doc, supportPublicationState));
+    section.append(supportPublicationPanel(doc, supportPublicationState, activeSet));
   }
   root.replaceChildren(section);
 }
@@ -123,7 +129,7 @@ function publicationStage(doc, label, stage) {
   return block;
 }
 
-function supportPublicationPanel(doc, state) {
+function supportPublicationPanel(doc, state, activeSet) {
   const section = doc.createElement('section');
   section.className = 'lfea-results-support-publication';
   section.dataset.currentness = state.publicationCurrentness ?? 'NONE';
@@ -132,7 +138,7 @@ function supportPublicationPanel(doc, state) {
     ['Support authority', state.authorityCurrentness ?? 'NONE'],
     ['Support publication', state.publicationCurrentness ?? 'NONE'],
     ['Support authority identity', state.authority?.semanticHash ?? null],
-    ['Support basis', supportBasisLabel(state)],
+    ['Support basis', supportBasisLabel(state, activeSet)],
   ]));
   if (state.publicationCurrentness !== 'CURRENT' || !state.publications) {
     if (state.publicationStaleReasonCodes?.length) {
@@ -146,12 +152,18 @@ function supportPublicationPanel(doc, state) {
   return section;
 }
 
-function supportBasisLabel(state) {
+function supportBasisLabel(state, activeSet) {
   const reviewer = state.authorization?.reviewerIdentity ?? null;
   if (!reviewer) return null;
+  const liftedOff = (activeSet?.cases ?? [])
+    .filter((row) => row.liftedOff.length > 0)
+    .map((row) => `${row.caseId}: ${row.liftedOff.map((lift) => lift.sourceNodeId).join(', ')}`);
+  const liftNote = liftedOff.length
+    ? ` One-way supports lifted off by ${activeSet.sourceId} report zero (${liftedOff.join('; ')}).`
+    : '';
   return reviewer.startsWith('NOT ENGINEER-REVIEWED')
-    ? 'DERIVED from the model restraints used by the solve (up = opposite of gravity, global X/Y/Z axes). NOT ENGINEER-REVIEWED.'
-    : `Reviewed by ${reviewer}`;
+    ? `DERIVED from the model restraints used by the solve (up = opposite of gravity, global X/Y/Z axes).${liftNote} NOT ENGINEER-REVIEWED.`
+    : `Reviewed by ${reviewer}.${liftNote}`;
 }
 
 function supportCaseTable(doc, publication) {

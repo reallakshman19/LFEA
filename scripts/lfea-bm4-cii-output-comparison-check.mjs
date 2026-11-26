@@ -45,37 +45,44 @@ for (const [caseId, section] of Object.entries(comparison.cases)) {
 }
 
 // ---------------------------------------------------------------------------
-// Finding 1: unilateral supports carry unphysical tension.
+// Finding 1: one-way supports lift off exactly where CAESAR lifts them off.
 // ---------------------------------------------------------------------------
-// A "Rigid +Y" support can only push the pipe up. Linearizing it as a
-// bidirectional FIXED DOF lets it pull DOWN instead, which is exactly what
-// happens here -- and CAESAR, solving the same supports nonlinearly, lifts
-// them off and reports zero. This is the dominant error source on BM4 and is
-// asserted as a KNOWN, MEASURED defect rather than hidden.
+// A "Rigid +Y" support can only push the pipe up. Linearized as a two-way
+// FIXED DOF it pulled the pipe DOWN at 2 SUS and 4 OPE supports (worst
+// -151.7 kN in OPE, measured 2026-11-25), where CAESAR reports zero. Since
+// 2026-11-26 the active-set iteration (LFEA_UNILATERAL_ACTIVE_SET_ITERATION)
+// releases those supports. Asserted: no support pulls, the iteration
+// converged, and the supports we lift off are exactly the "+Y" supports
+// CAESAR reports at zero.
 const sustained = comparison.cases['IXP-WP'];
 const operating = comparison.cases['IXP-WPT'];
 
-// Re-measured 2026-11-25 with the default B31J component factor basis applied to
-// the welding tees (previously the model never reached a solve): SUS lifts at
-// 20090 and 21470; OPE count unchanged at 4.
-assert.equal(sustained.restraint.unilateralTensionNodes.length, 2, 'BM4 SUS unilateral-tension support count');
-assert.equal(sustained.restraint.unilateralTensionNodes[0].nodeId, '20090');
-assert.equal(operating.restraint.unilateralTensionNodes.length, 4, 'BM4 OPE unilateral-tension support count');
-for (const row of operating.restraint.unilateralTensionNodes) {
-  assert.equal(row.ciiUY, 0, `CAESAR lifts node ${row.nodeId} off entirely`);
+const expectedLiftOff = { 'IXP-WP': ['20090', '21470'], 'IXP-WPT': ['20090', '20350', '21470', '21610'] };
+for (const [caseId, section] of [['IXP-WP', sustained], ['IXP-WPT', operating]]) {
+  assert.equal(section.restraint.unilateralTensionNodes.length, 0, `${caseId}: no one-way support may pull the pipe`);
+  assert.equal(section.unilateralActiveSet.status, 'CONVERGED', `${caseId} active set converged`);
+  assert.ok(section.unilateralActiveSet.solveCount <= 20, `${caseId} active set within its iteration cap`);
+  assert.deepEqual([...section.unilateralActiveSet.liftedOffNodes].sort(), expectedLiftOff[caseId], `${caseId} lifted-off supports`);
+  assert.deepEqual([...section.restraint.zeroReactionMatches].sort(), expectedLiftOff[caseId],
+    `${caseId}: every lifted-off support matches CAESAR's zero, and no other CAESAR zero is missed`);
 }
-const worstTension = Math.min(...operating.restraint.unilateralTensionNodes.map((row) => row.ourUY));
-assert.ok(worstTension < -1e5, 'the operating-case unilateral tension is large, not marginal');
 
 // ---------------------------------------------------------------------------
 // Finding 2: per-node agreement, and how far it degrades.
 // ---------------------------------------------------------------------------
+// Re-measured 2026-11-26 with the active set: SUS 21/30 (unchanged) and OPE
+// 17/30 (was 15) within 5% where CAESAR is nonzero; counting the supports both
+// solvers lift off to exactly zero, SUS 23/30 (was 21) and OPE 21/30 (was 15).
 const withinFivePercent = (section) => section.restraint.matched
   .filter((row) => row.UY.percentDifference !== null && Math.abs(row.UY.percentDifference) < 5).length;
 const sustainedWithin = withinFivePercent(sustained);
 const operatingWithin = withinFivePercent(operating);
 assert.ok(sustainedWithin >= 21, `BM4 SUS: only ${sustainedWithin}/30 restraints within 5% of CAESAR`);
-assert.ok(operatingWithin >= 15, `BM4 OPE: only ${operatingWithin}/30 restraints within 5% of CAESAR`);
+assert.ok(operatingWithin >= 17, `BM4 OPE: only ${operatingWithin}/30 restraints within 5% of CAESAR`);
+const sustainedAgree = sustainedWithin + sustained.restraint.zeroReactionMatches.length;
+const operatingAgree = operatingWithin + operating.restraint.zeroReactionMatches.length;
+assert.ok(sustainedAgree >= 23, `BM4 SUS: only ${sustainedAgree}/30 restraints within 5% or lifted off with CAESAR`);
+assert.ok(operatingAgree >= 21, `BM4 OPE: only ${operatingAgree}/30 restraints within 5% or lifted off with CAESAR`);
 
 // ---------------------------------------------------------------------------
 // Finding 3: displacements are systematically UNDER-predicted.
@@ -88,6 +95,10 @@ const operatingRatio = operating.displacement.totalAbsoluteTranslation.ratio;
 // Re-measured 2026-11-25: with the default B31J tee basis and current
 // unilateral handling the sustained total displacement is 1.0013 x CAESAR
 // (previously 0.30-0.40, too stiff). Band records the new measurement.
+// Re-measured 2026-11-26 with the active set: SUS 1.0014, OPE 0.7615. OPE
+// vertical movement now matches CAESAR (sum |DY| ratio 0.997); the remaining
+// OPE shortfall is horizontal, at gapped guides CAESAR leaves open
+// (GENERIC_APPROX_GAP_CLOSED), e.g. node 20030 DZ -25 mm in CAESAR, 0 here.
 assert.ok(sustainedRatio > 0.97 && sustainedRatio < 1.03, `BM4 SUS displacement ratio ${sustainedRatio.toFixed(4)} moved outside its recorded band`);
 assert.ok(operatingRatio > 0.72 && operatingRatio < 0.86, `BM4 OPE displacement ratio ${operatingRatio.toFixed(4)} moved outside its recorded band`);
 
@@ -125,16 +136,19 @@ console.log(JSON.stringify({
   sustained: {
     totalReactionDeviationPercent: Number(sustained.restraint.totalUY.percentDifference.toFixed(3)),
     restraintsWithinFivePercent: `${sustainedWithin}/30`,
+    restraintsWithinFivePercentOrLiftedOff: `${sustainedAgree}/30`,
     displacementRatio: Number(sustainedRatio.toFixed(4)),
     unilateralTensionSupports: sustained.restraint.unilateralTensionNodes.length,
+    liftedOff: sustained.unilateralActiveSet.liftedOffNodes,
     executionStatus: sustained.executionStatus,
   },
   operating: {
     totalReactionDeviationPercent: Number(operating.restraint.totalUY.percentDifference.toFixed(3)),
     restraintsWithinFivePercent: `${operatingWithin}/30`,
+    restraintsWithinFivePercentOrLiftedOff: `${operatingAgree}/30`,
     displacementRatio: Number(operatingRatio.toFixed(4)),
     unilateralTensionSupports: operating.restraint.unilateralTensionNodes.length,
-    worstUnilateralTensionNewtons: Number(worstTension.toFixed(1)),
+    liftedOff: operating.unilateralActiveSet.liftedOffNodes,
     executionStatus: operating.executionStatus,
   },
 }, null, 2));
