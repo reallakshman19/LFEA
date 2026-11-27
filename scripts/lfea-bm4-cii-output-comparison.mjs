@@ -25,9 +25,14 @@ export const BM4_REPAIRED_PATH = fileURLToPath(new URL('../benchmarks/LFEA/BM4/I
 export const BM4_SOURCE_PATH = fileURLToPath(new URL('../benchmarks/LFEA/BM4/InputXML_BM4.xml', import.meta.url));
 export const BM4_CII_OUTPUT_PATH = fileURLToPath(new URL('../benchmarks/LFEA/BM4/Output_BM4.xml', import.meta.url));
 
-/** Our sustained/operating cases, paired with the CAESAR case each mirrors. */
+/**
+ * Our sustained/operating cases, paired with the CAESAR case each mirrors.
+ * CASE 19 and CASE 20 are CAESAR's friction-free pair (FRICTION_MULTIPLIER 0,
+ * user-verified in benchmarks/LFEA/CAESAR_ACCDB/bm4nl-l19-l20-linear-solve.profile.json);
+ * CASE 17 and CASE 2 carry friction, which LFEA does not apply yet.
+ */
 export const BM4_CASE_PAIRS = Object.freeze([
-  Object.freeze({ caseId: 'IXP-WP', ciiLoadCase: 'CASE 17 (SUS) W+P1' }),
+  Object.freeze({ caseId: 'IXP-WP', ciiLoadCase: 'CASE 19 (SUS) W+P1' }),
   Object.freeze({ caseId: 'IXP-WPT', ciiLoadCase: 'CASE 20 (OPE) W+T1+P1' }),
 ]);
 

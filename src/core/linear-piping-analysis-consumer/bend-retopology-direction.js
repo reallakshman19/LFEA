@@ -1,4 +1,4 @@
-import { failBendRetopology } from './bend-retopology-contract.js';
+import { failBendRetopology, isCornerIntersectionTangentBasis } from './bend-retopology-contract.js';
 
 /**
  * Recover the incoming tangent direction from the same source topology that
@@ -13,7 +13,7 @@ export function bendSourceIncomingDirection(definition, sourceSegments, sourceNo
   if (source === null) {
     fail('BEND_RETOPOLOGY_SOURCE_SEGMENT_MISSING', sourceSegmentId, { sourceSegmentId });
   }
-  if (definition.tangentBasis === 'ACCDB_CORNER_INTERSECTION_V1') {
+  if (isCornerIntersectionTangentBasis(definition.tangentBasis)) {
     return directionBetween(
       requireNode(sourceNodesById, source.startNodeId, sourceSegmentId),
       requireNode(sourceNodesById, source.endNodeId, sourceSegmentId),

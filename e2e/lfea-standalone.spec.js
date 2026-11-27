@@ -51,8 +51,9 @@ async function runNative(page) {
   await authorizeIfRequired(page);
   await run.click();
   await expect(page.locator(view('results'))).toBeVisible();
-  await expect(page.getByText('Raw B-3.3 displacement — GLOBAL basis')).toBeVisible();
-  await expect(page.getByText('Recovered B-3.4 element-end actions')).toBeVisible();
+  // One table per requested case; the default set has weight, sustained and operating.
+  await expect(page.getByText('Raw B-3.3 displacement — GLOBAL basis').first()).toBeVisible();
+  await expect(page.getByText('Recovered B-3.4 element-end actions').first()).toBeVisible();
 }
 
 async function createDossier(page) {

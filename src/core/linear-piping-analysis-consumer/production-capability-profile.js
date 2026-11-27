@@ -6,7 +6,7 @@
  * remain fail-closed; e.g. a bend without a qualified tangent basis is not
  * promoted merely because bend mechanics exist in the compiler.
  */
-import { ARC_BEARING_COMPONENT_TYPES } from './bend-retopology-contract.js';
+import { ARC_BEARING_COMPONENT_TYPES, CORNER_INTERSECTION_TANGENT_BASES } from './bend-retopology-contract.js';
 
 export const PRODUCTION_CAPABILITY_PROFILE_SCHEMA = 'lfea-production-capability-profile/v1';
 
@@ -51,7 +51,7 @@ export const PRODUCTION_REPRESENTABLE_COMPONENT_KINDS = Object.freeze([
 ]);
 
 const QUALIFIED_BEND_TANGENT_BASES = new Set([
-  'ACCDB_CORNER_INTERSECTION_V1',
+  ...CORNER_INTERSECTION_TANGENT_BASES,
   'INPUTXML_TANGENT_TO_TANGENT_V1',
 ]);
 const QUALIFIED_BEND_COMPONENT_TYPES = new Set([

@@ -29,6 +29,8 @@ instead:
 | Gapped supports (CAESAR `GAP` > 0 on a guide or limit stop) treated as closed (`GENERIC_APPROX_GAP_CLOSED`) | On by default, in the same active-set iteration and record. A gap is a contact with a distance g: one side for a one-way gapped support, both sides for a two-way guide or limit. The first solve sees every gap open. An open gap closes when the pipe moves past g, and the solver then holds the pipe at exactly g (a constraint offset, `SOLVER_CONSTRAINT_OFFSET_INVALID` if malformed). A closed gap opens again when its stop pulls. Open gaps report zero. A gap whose length unit cannot be resolved stays closed and is counted. | Same "One-way and gapped support basis" line: "… gaps N closed (node DOF ±g mm) / M open …". |
 | B31 check refused anything but exact straight pipe, so reducers and tees went unchecked | Reducer and tee elements are B31 targets too; bend arcs still are not (`src/lfea/practical-b31-fittings.js`, `sourceId: LFEA_PRACTICAL_B31_FITTINGS`, B31.3 2022 + B31J 2017 factors). **Reducer** (a CAESAR reducer record): both ends get the B31J Table 1-1 reducer SIF. The `DIAMETER2` end is checked with that size (the matching-pipe rule), and that is the only case where an end section may differ from the element's OD. CAESAR's `ALPHA`, `R2` and `L2` are used where given. Where they are 0, labelled defaults stand in: cone half-angle from the element geometry, r2 = 0.1·D2, L2 = 0.1·L, body wall = T1. **Welding tee** (CAESAR SIF type 3, three legs): B31J run or branch SIF, where the run is the two most nearly opposite legs. In-plane and out-of-plane follow the element's local axes; if neither axis is normal to the tee plane, the larger factor is used both ways. Tee quality is `UNVERIFIED`, so no 1.26 reduction. **Weldolet** (CAESAR SIF type 5) run ends: B31.3 Table D300 welded-on fitting SIF, i = 0.9 / h^(2/3), h = 3.3 T / r2, in and out of plane and as the sustained index; torsion and axial 1 (`LFEA_WELDOLET_DEFAULT`, NOT ENGINEER-REVIEWED: LFEA has no B31J weldolet equations). Branch ends stay at 1. Other fittings stay at i = 1 and are counted. Never blocks. | Code check status line: "B31J SIFs at N reducer end(s) and M welding-tee end(s) (LFEA_PRACTICAL_B31_FITTINGS); B31.3 Table D300 SIFs at W weldolet run end(s), LFEA default, no B31J weldolet equations; K fitting end(s) not covered, unity factors". |
 | B31 check had no expansion (displacement stress range) category | When the run has an operating case (`IXP-WPT`, else `IXP-WT`) and a sustained case (`IXP-WP`, else `IXP-W`), every sustained end also gets a `DISPLACEMENT_STRESS_RANGE` check on the operating minus sustained actions (CAESAR's EXP = OPE − SUS). Stress is B31.3 (2016+) Eq. (17), SE = √((\|Sa\| + Sb)² + (2St)²) with Sa = ia\|Fa\|/A, on the nominal section (a reducer end at that end's size), with the fitting's displacement SIFs. Allowable is Eq. (1a), f (1.25 Sc + 0.25 Sh), with f = 1 (`NOT ENGINEER-REVIEWED (LFEA default: f = 1, 7000 cycles or fewer)`). The engine rule is `DISPLACEMENT_RANGE_COLD_HOT_CYCLE_REDUCTION_EQ17_AXIAL_TORSION_V1`; profiles on the original rule keep the B31.3-2006 form. | Code check status line: "B31.3 expansion check: N check(s), IXP-WPT minus IXP-WP, allowable f (1.25 Sc + 0.25 Sh), f = 1 (LFEA default)", plus a weldolet warning when weldolets are present. |
+| InputXML bends with CAESAR station nodes (`NODE1`/`NODE2`) refused an arc (`BEND_INTERNAL_STATION_GEOMETRY_NOT_SUPPORTED`) and ran as straight chords (`GENERIC_APPROX_BEND_STRAIGHT_CHORD`). Every bend in BM4 (11) and BM1 (2) has station nodes. | Resolved from the corner, CAESAR's own convention: FROM→TO runs along the incoming leg to the corner, and the next element leaves along the outgoing leg; the tangent points sit R·tan(θ/2) back on each leg (`src/core/geometry/adapters/inputxml-bend-corner.js`, tangent basis `INPUTXML_CORNER_INTERSECTION_V1`). It is the same arithmetic as ACCDB's `ACCDB_CORNER_INTERSECTION_V1`, and the bend then follows the same retopology. A bend whose corner is not a simple two-span corner, or whose radius does not fit, stays a chord with the diagnostic. | Pre-flight diagnostic `BEND_CORNER_ARC_GEOMETRY_RESOLVED` per bend; the chord limitation disappears from the retained list. |
+| Requested cases defaulted to weight only, so no expansion check ran until the user applied a selection on the Model tab | When no selection has been applied, the Source workflow requests weight, the sustained case (`WEIGHT_PRESSURE`) and one operating case (`WEIGHT_PRESSURE_TEMPERATURE`, else `WEIGHT_TEMPERATURE`) that the model has (`src/workspace/lfea-default-case-selection.js`). If that set would block a model the weight-only pass did not, weight only is kept. Applying a selection replaces it. | Source facts: "Requested cases: IXP-W, IXP-WP, IXP-WPT (LFEA default: weight, sustained and operating cases; change on the Model tab)". |
 | Support friction (CAESAR `FRIC_COEF`) | **Not applied yet** (`GENERIC_APPROX_FRICTION_IGNORED`): supports slide freely. The record counts the friction coefficients not applied. | Same line: "N support friction coefficient(s) not applied: those supports slide freely." |
 
 Every assumed value stays in the sealed records (authority IDs, source IDs,
@@ -85,9 +87,44 @@ Gapped supports (same iteration, 2026-11-26). BM4 has six gapped guides and
 limit stops. SUS converges in 2 solves with all six open. OPE converges in 4
 solves and closes three, each exactly where CAESAR closes it: 20390 DX −5 mm,
 21480 DX +10 mm and 21640 DX −10 mm, the same in both. The OPE comparison is
-with CAESAR CASE 20, its friction-free operating case. SUS is compared with
-CASE 17, which carries friction. CASE 19 is not a clean friction-free SUS
-case, so there is none to compare with.
+with CAESAR CASE 20, its friction-free operating case. SUS was compared with
+CASE 17, which carries friction. Since 2026-11-27 SUS is compared with
+CASE 19: the user-verified case settings
+(`benchmarks/LFEA/CAESAR_ACCDB/bm4nl-l19-l20-linear-solve.profile.json`) give
+CASE 19 and CASE 20 `FRICTION_MULTIPLIER 0`, so they are the friction-free
+pair, and CASE 21 (EXP) = L20 − L19.
+
+InputXML bends as real arcs (2026-11-27), same check:
+
+| BM4 (30 supports) | Bends as chords | Real bend arcs | Real arcs, CAESAR-like α (probe) |
+|---|---|---|---|
+| SUS vs CASE 19 within 5% / or lifted off | 24 / 26 | **28 / 30** | 28 / 30 |
+| OPE vs CASE 20 within 5% / or lifted off | 21 / 25 | 18 / 22 | **25** within 5% |
+| Total displacement ratio SUS (CASE 19) | 0.6823 | **1.0171** | 1.0171 |
+| Total displacement ratio OPE | 0.8960 | 0.8930 | **0.9935** |
+| Total vertical reaction vs CAESAR | 1.19% | **0.19%** | 0.19% |
+| OPE gaps closed | 3 | 4: 20030 DZ now closes at −25 mm, as in CAESAR | 4 |
+
+OPE support loads drop with real arcs because the app's default thermal strain
+(1.17e-5 /K from 20 °C) is about 12% below CAESAR's at BM4's 325 °C. With a
+CAESAR-like 1.3289e-5 /K from 21 °C (a probe only, not shipped) the same model
+reaches 25/30 and a displacement ratio of 0.99. The OPE marks rise once the
+thermal default comes from the CAESAR material database.
+
+B31 on the app's own path (`scripts/lfea-b31-inputxml-caesar-comparison.mjs`:
+BM4 InputXML, app defaults, default cases):
+
+| BM4 InputXML vs Output_BM4 | Ends | Within 1% | Within 5% | Median |
+|---|---|---|---|---|
+| SUS straight pipe vs CASE 19 | 111 | 100 | 106 | 0.08% |
+| SUS, all compared ends | 126 | 114 | 121 | 0.10% |
+| EXP straight pipe vs CASE 21, app thermal default | 98 | 2 | 4 | 13.5% low (CAESAR/LFEA 1.147) |
+| EXP straight pipe, scaled to a CAESAR-like strain (×1.132) | 98 | 17 | 55 | 3.55% |
+| EXP straight pipe, chords (before), same scaling | 98 | 8 | 31 | 11.3% |
+
+Before 2026-11-27 the BM4 InputXML expansion check was compared with BM4_L's
+CASE 14 by mistake. BM4_L runs at 120 °C and BM4 at 325 °C, so that gave
+about 3× CAESAR; Output_BM4 is the right reference.
 
 | BM4 (30 supports) | One-way only | One-way + gaps |
 |---|---|---|
@@ -283,7 +320,8 @@ Known B31 limits, all stated in the status line:
 - Expansion at weldolet run ends uses the Table D300 SIF and is about 37% low
   against CAESAR (see above).
 - The app's default thermal strain puts BM4_L operating and expansion
-  results about 3.4% below CAESAR (see above).
+  results about 3.4% below CAESAR, and BM4 (325 °C) about 13% below (see
+  above).
 - Bends are not checked yet; bend-arc elements stay outside the native
   boundary. Straight pipe, reducer and tee elements are checked.
 - Weldolet run ends use the Table D300 default above, not B31J, and weldolet

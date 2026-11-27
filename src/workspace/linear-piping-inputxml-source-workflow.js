@@ -13,6 +13,7 @@ import {
   requireLinearPipingInputXmlPreFlight,
 } from './linear-piping-inputxml-prefea.js';
 import { renderLinearPipingInputXmlDiagnostics } from './linear-piping-inputxml-diagnostics-view.js';
+import { LFEA_DEFAULT_CASE_SELECTION_SOURCE, lfeaDefaultRequestedCaseIds } from './lfea-default-case-selection.js';
 
 export const LINEAR_PIPING_INPUTXML_SOURCE_WORKFLOW_SCHEMA = 'linear-piping-inputxml-source-workflow/v1';
 
@@ -57,6 +58,7 @@ export class LinearPipingInputXmlSourceWorkflowController {
     this.intake = null;
     this.preFlight = null;
     this.requestedCaseIds = null;
+    this.defaultCasesApplied = false;
     this.message = 'Import a CAESAR II InputXML source to begin governed pre-flight.';
     this.error = '';
     this.elements = null;
@@ -306,6 +308,28 @@ export class LinearPipingInputXmlSourceWorkflowController {
     return this.getSnapshot();
   }
 
+  /**
+   * Swap the weight-only first pass for the LFEA default case set (see
+   * lfea-default-case-selection.js), unless that set would block a model the
+   * weight-only pass did not block.
+   */
+  applyDefaultCaseSelection(fallbackUnit, profileId) {
+    const defaults = lfeaDefaultRequestedCaseIds(this.preFlight);
+    if (defaults.length <= 1) return;
+    try {
+      const intake = createLinearPipingInputXmlIntake(this.sourceInput, {
+        fallbackUnit, requestedProfileId: profileId, requestedCaseIds: defaults,
+      });
+      const preFlight = prepareLinearPipingInputXmlPreFlight(intake);
+      if (preFlight.status === 'BLOCK' && this.preFlight.status !== 'BLOCK') return;
+      this.intake = intake;
+      this.preFlight = preFlight;
+      this.defaultCasesApplied = true;
+    } catch {
+      // Keep the weight-only pre-flight; the Model tab can still request more.
+    }
+  }
+
   prepareSource(fallbackUnit) {
     this.fallbackUnit = fallbackUnit;
     const profileId = this.elements?.profileSelect.value ?? LINEAR_PIPING_INPUTXML_DEFAULT_PROFILE_ID;
@@ -315,8 +339,10 @@ export class LinearPipingInputXmlSourceWorkflowController {
       requestedCaseIds: this.requestedCaseIds ?? [LINEAR_PIPING_INPUTXML_DEFAULT_CASE_ID],
     });
     this.preFlight = null;
+    this.defaultCasesApplied = false;
     try {
       this.preFlight = prepareLinearPipingInputXmlPreFlight(this.intake);
+      if (this.requestedCaseIds === null) this.applyDefaultCaseSelection(fallbackUnit, profileId);
     } catch (error) {
       this.error = errorMessage(error);
       this.message = [
@@ -504,7 +530,8 @@ function renderSourceSummary(doc, root, controller) {
   if (controller.intake) {
     rows.push(['Length unit', `${controller.intake.unitAuthority.sourceUnit} — ${controller.intake.unitAuthority.authority}`]);
     rows.push(['Profile', controller.intake.requestedProfileId]);
-    rows.push(['Requested case', `${LINEAR_PIPING_INPUTXML_DEFAULT_CASE_ROLE} (${controller.intake.requestedCaseIds.join(', ')})`]);
+    rows.push(['Requested cases', `${controller.intake.requestedCaseIds.join(', ')}${
+      controller.defaultCasesApplied ? ` (${LFEA_DEFAULT_CASE_SELECTION_SOURCE}; change on the Model tab)` : ''}`]);
   } else {
     rows.push(['Length unit', controller.inspection?.sourceUnit ?? 'UNIT AUTHORITY REQUIRED']);
   }

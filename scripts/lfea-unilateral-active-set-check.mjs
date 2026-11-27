@@ -186,9 +186,10 @@ const bm4Record = bm4Execution.execution.unilateralActiveSet;
 assert.equal(bm4Record.gapCandidateCount, 6, 'BM4 has six gapped supports');
 assert.ok(bm4Record.frictionNotAppliedCount > 0, 'BM4 friction coefficients are counted as not applied');
 const operatingGaps = bm4Record.cases.find((row) => row.caseId === 'IXP-WPT');
-assert.deepEqual(operatingGaps.gaps.filter((row) => row.state !== 'OPEN').map((row) => row.sourceNodeId).sort(), ['20390', '21480', '21640']);
-assert.equal(operatingGaps.constraintOffsets.length, 3, 'each closed gap is sealed as a solver offset');
-assert.ok(label.includes('IXP-WPT: 4 lifted off') && label.includes('gaps 3 closed'), label);
+// Four close since bends have real arcs (2026-11-27); 20030 closes at -25 mm, as in CAESAR.
+assert.deepEqual(operatingGaps.gaps.filter((row) => row.state !== 'OPEN').map((row) => row.sourceNodeId).sort(), ['20030', '20390', '21480', '21640']);
+assert.equal(operatingGaps.constraintOffsets.length, 4, 'each closed gap is sealed as a solver offset');
+assert.ok(label.includes('IXP-WPT: 4 lifted off') && label.includes('gaps 4 closed'), label);
 assert.ok(label.includes('friction coefficient(s) not applied'), label);
 console.log('LFEA-UNI-08 PASS BM4 gaps open and close, label names closed gaps and friction not applied');
 

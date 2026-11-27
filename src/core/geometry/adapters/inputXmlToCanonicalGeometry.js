@@ -2,6 +2,7 @@ import { CANONICAL_GEOMETRY_SCHEMA_VERSION } from '../geometryTypes.js';
 import { validateCanonicalGeometry } from '../validateCanonicalGeometry.js';
 import { attributeValue, findAnyElements, findElements, firstElement } from './inputxml-tag-scanner.js';
 import { checkDeclaredRadius, resolveBendArcCentre } from './inputxml-bend-arc.js';
+import { resolveInputXmlCornerBend } from './inputxml-bend-corner.js';
 import {
   resolveRestraintTypeMutation,
   normalizeRestraintTypeMutationConfig,
@@ -234,6 +235,9 @@ function buildNodesAndSegments(edges, nodeCoords, options, diagnostics) {
     if (!segmentsEndingAt.has(segment.endNodeId)) segmentsEndingAt.set(segment.endNodeId, []);
     segmentsEndingAt.get(segment.endNodeId).push(segment);
   });
+  segments.filter((segment) => segment.type === 'BEND' && segment.meta.bendInternalStations
+    && !segment.meta.bendCompoundMiter && segment.meta.bendDeclaredRadius != null)
+    .forEach((segment) => resolveBendFromCorner(segment, segmentsByFromNode, segmentsEndingAt, nodeCoords, diagnostics));
   segments.filter((segment) => segment.type === 'BEND' && !segment.meta.bendArcCentre)
     .forEach((segment) => resolveBendFromPredecessor(
       segment, segmentsEndingAt, nodeCoords, bendToleranceOf(options), diagnostics,
@@ -483,13 +487,38 @@ function attachBendGeometry(segment, edge, _tolerance, diagnostics) {
     addDiagnostic(diagnostics, 'warn', 'BEND_ARC_GEOMETRY_NOT_DECLARED', `Bend segment ${segment.id} has no declared RADIUS.`, { segmentId: segment.id });
   } else if (isCompound) {
     addDiagnostic(diagnostics, 'warn', 'BEND_COMPOUND_MITER_NOT_SUPPORTED', `Bend segment ${segment.id} is a compound multi-cut miter; one circle cannot represent it.`, { segmentId: segment.id });
-  } else if (internalStationNodes.length > 0) {
+  }
+  // Internal-station bends are resolved from their corner once every segment
+  // is known (resolveBendFromCorner); the FROM/TO span is never fitted as a
+  // tangent-to-tangent arc.
+}
+
+function resolveBendFromCorner(segment, segmentsByFromNode, segmentsEndingAt, nodeCoords, diagnostics) {
+  const cornerId = segment.endNodeId;
+  const outgoing = (segmentsByFromNode.get(cornerId) || []).filter((candidate) => candidate.id !== segment.id);
+  const incidentCount = outgoing.length + (segmentsEndingAt.get(cornerId) || []).length;
+  const result = outgoing.length === 1 && incidentCount === 2
+    ? resolveInputXmlCornerBend({
+      declaredRadius: segment.meta.bendDeclaredRadius,
+      start: nodeCoords.get(segment.startNodeId),
+      corner: nodeCoords.get(cornerId),
+      outletEnd: nodeCoords.get(outgoing[0].endNodeId),
+    })
+    : { reason: `corner ${cornerId} is not a simple two-span route corner (${outgoing.length} outgoing, ${incidentCount} incident)` };
+  if (!result.resolved) {
     addDiagnostic(
       diagnostics, 'warn', 'BEND_INTERNAL_STATION_GEOMETRY_NOT_SUPPORTED',
-      `Bend segment ${segment.id} declares internal CAESAR bend station node(s) ${internalStationNodes.join(', ')}. The FROM/TO span is not treated as a tangent-to-tangent arc, so no incorrect centre is fitted.`,
-      { segmentId: segment.id, internalStationNodes },
+      `Bend segment ${segment.id} declares internal CAESAR bend station node(s) and its arc could not be resolved from corner ${cornerId}: ${result.reason}. It stays a straight chord.`,
+      { segmentId: segment.id, cornerNodeId: cornerId, reason: result.reason },
     );
+    return;
   }
+  Object.assign(segment.meta, result.resolved);
+  addDiagnostic(
+    diagnostics, 'info', 'BEND_CORNER_ARC_GEOMETRY_RESOLVED',
+    `Bend segment ${segment.id} arc resolved from corner ${cornerId} (CAESAR's TO_NODE convention) and declared radius.`,
+    { segmentId: segment.id, cornerNodeId: cornerId },
+  );
 }
 
 function physicalBendAngle(value) {
