@@ -45,6 +45,9 @@ export function retopologiseDeclaredBends(geometry, profile) {
   const generatedNodes = new Map();
   const retiredNodeRecords = new Map();
   const repositionedNodes = new Map();
+  // Source spans that lie wholly inside a bend's arc (its far tangent lands on
+  // their far node): consumed span -> the bend that consumed it.
+  const consumedSegments = new Map();
 
   for (const segment of sourceSegments) {
     // Selected by declared arc, not by declared type. A bend element that also
@@ -66,6 +69,7 @@ export function retopologiseDeclaredBends(geometry, profile) {
       generatedNodes,
       retiredNodeRecords,
       repositionedNodes,
+      consumedSegments,
       chordCount,
       lengthErrorLimit,
     };
@@ -91,6 +95,7 @@ export function retopologiseDeclaredBends(geometry, profile) {
   const outputSegments = [];
   const spanOrigin = {};
   for (const source of sourceSegments) {
+    if (consumedSegments.has(String(source.id))) continue;
     appendSourceRepresentation({
       source,
       definitionBySource,
@@ -130,6 +135,9 @@ export function retopologiseDeclaredBends(geometry, profile) {
       segments: Object.freeze(finalSegments),
     }),
     spanOrigin: Object.freeze({ ...spanOrigin }),
+    consumedSegments: Object.freeze(Object.fromEntries(
+      [...consumedSegments.entries()].sort((a, b) => compareAscii(a[0], b[0])),
+    )),
     retiredNodeIds: Object.freeze(retiredNodeIds),
     nodeRetargeting: Object.freeze(Object.fromEntries(
       [...retiredNodeRecords.entries()]
@@ -170,7 +178,10 @@ function appendSourceRepresentation(input) {
     || String(end.id) !== String(input.source.endNodeId) || bend !== null;
   const bodyLength = distanceBetween(start, end);
   const bodyAllowed = bend === null || isCornerIntersectionTangentBasis(bend.tangentBasis);
-  const bodyExists = bodyAllowed && bodyLength > absoluteGeometryTolerance(start, end);
+  // A bend that starts straight off its FROM node trims its own body to that
+  // node: same node at both ends means there is no straight part.
+  const bodyExists = bodyAllowed && String(start.id) !== String(end.id)
+    && bodyLength > absoluteGeometryTolerance(start, end);
   let evidenceOwned = false;
 
   if (bodyExists) {

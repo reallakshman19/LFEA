@@ -1,5 +1,7 @@
 import { InputXmlLinearStructuralPreparationError } from './inputxml-linear-structural-profile.js';
 import { compileInputXmlHangerConstraints } from './inputxml-hanger-structural-constraints.js';
+import { isMergedDuplicateRestraint } from './inputxml-restraint-duplicate-merge.js';
+import { compileInputXmlDisplacementConstraints } from './inputxml-displacement-structural-constraints.js';
 import {
   requireStructuralConstraintNode,
   resolveStructuralConstraintNode,
@@ -36,7 +38,8 @@ export function compileInputXmlStructuralConstraints({
     ? null
     : new Set(conditionedNodeIds.map(String));
   const restraints = inventory
-    .filter((row) => row.active && row.sourceKind === 'RESTRAINT')
+    // A merged duplicate is held by the restraint it was merged into.
+    .filter((row) => row.active && row.sourceKind === 'RESTRAINT' && !isMergedDuplicateRestraint(row))
     .sort((left, right) => compareAscii(left.inventoryId, right.inventoryId));
 
   for (const item of restraints) {
@@ -193,6 +196,12 @@ export function compileInputXmlStructuralConstraints({
       declarationIds: Object.freeze(declarationIds),
     }));
   }
+
+  const displacementResult = compileInputXmlDisplacementConstraints({
+    inventory, modelId, analysisProfileId, nodeRetargeting: retargeting, available, occupied,
+  });
+  declarations.push(...displacementResult.declarations);
+  bindings.push(...displacementResult.bindings);
 
   declarations.sort((left, right) => compareAscii(left.declarationId, right.declarationId));
   bindings.sort((left, right) => compareAscii(left.inventoryId, right.inventoryId));

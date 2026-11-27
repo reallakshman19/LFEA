@@ -177,24 +177,35 @@ export function diagnoseInputXmlTopologyGraph(sourceBundle, options = {}) {
   for (const row of coordinateClosure) {
     if (row.status === 'PASS') continue;
     const unresolved = row.status === 'UNRESOLVED';
+    // A loop that misses closing by less than the declared geometry allowance
+    // (lfea-geometry-allowance.js) is a modelling slip, not a different model:
+    // it is still named and counted, and analysed on the solved coordinates.
+    const accepted = !unresolved && row.residualNorm <= tolerances.smallDiscrepancyAllowance;
     findings.push(finding({
       code: unresolved
         ? 'TOPOLOGY_ELEMENT_DELTA_CLOSURE_UNRESOLVED'
         : 'TOPOLOGY_ELEMENT_DELTA_CLOSURE_MISMATCH',
-      effect: 'BLOCK',
+      effect: accepted ? 'ADVISORY' : 'BLOCK',
       scopeKey: `SOURCE:${row.sourceFeatureId}`,
       message: unresolved
         ? `Source element ${row.sourceElementNumber} cannot prove endpoint-delta closure.`
-        : `Source element ${row.sourceElementNumber} delta does not close between nodes ${row.fromNodeId} and ${row.toNodeId}.`,
+        : `Source element ${row.sourceElementNumber} delta does not close between nodes ${row.fromNodeId} and ${row.toNodeId}`
+          + (accepted
+            ? ` (misses by ${formatLength(row.residualNorm)}), accepted within the declared ${tolerances.smallDiscrepancyAllowance} allowance.`
+            : '.'),
       entities: {
         nodeIds: [row.fromNodeId, row.toNodeId].filter(Boolean),
         segmentIds: row.canonicalSegmentId ? [row.canonicalSegmentId] : [],
         sourceFeatureIds: [row.sourceFeatureId],
       },
-      evidence: row,
+      evidence: accepted
+        ? { ...row, smallDiscrepancyAllowance: tolerances.smallDiscrepancyAllowance, acceptedWithinAllowance: true }
+        : row,
       remediation: unresolved
         ? 'Restore finite source deltas, endpoint identities, and canonical reconciliation.'
-        : 'Correct the source delta or the conflicting route loop; no coordinate is adjusted automatically.',
+        : accepted
+          ? `Accepted under the declared ${tolerances.smallDiscrepancyAllowance} geometry allowance; the solved node coordinates are used. Correct the source delta to remove it.`
+          : 'Correct the source delta or the conflicting route loop; no coordinate is adjusted automatically.',
     }));
   }
 
@@ -388,9 +399,17 @@ function resolveTolerances(options, sourceBundle) {
         ?? (declaredPrecision === null ? 0 : COORDINATE_PRECISION_RELATIVE[declaredPrecision]),
       'coordinateMagnitudeRelativeTolerance',
     ),
+    smallDiscrepancyAllowance: nonnegative(
+      options.smallDiscrepancyAllowance ?? 0,
+      'smallDiscrepancyAllowance',
+    ),
     sourceCoordinatePrecision: declaredPrecision,
     unit: 'GEOMETRY_NATIVE',
   });
+}
+
+function formatLength(value) {
+  return String(Number(value.toPrecision(3)));
 }
 
 function indexNodes(nodes) {

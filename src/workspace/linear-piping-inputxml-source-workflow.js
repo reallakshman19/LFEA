@@ -14,6 +14,7 @@ import {
 } from './linear-piping-inputxml-prefea.js';
 import { renderLinearPipingInputXmlDiagnostics } from './linear-piping-inputxml-diagnostics-view.js';
 import { LFEA_DEFAULT_CASE_SELECTION_SOURCE, lfeaDefaultRequestedCaseIds } from './lfea-default-case-selection.js';
+import { prepareLfeaPreFlightWithHangerDesign } from './lfea-hanger-design.js';
 import {
   createLfeaAccdbIntake,
   isLfeaAccdbFileName,
@@ -353,10 +354,17 @@ export class LinearPipingInputXmlSourceWorkflowController {
     return createLinearPipingInputXmlIntake(this.sourceInput, { fallbackUnit, requestedProfileId: profileId, requestedCaseIds });
   }
 
+  /** Pre-flight one intake; hangers CAESAR would size get the two-pass LFEA design (lfea-hanger-design.js). */
   prepareIntake(intake) {
-    return this.accdbSource
-      ? prepareLfeaAccdbPreFlight(this.accdbSource, intake)
-      : prepareLinearPipingInputXmlPreFlight(intake);
+    return prepareLfeaPreFlightWithHangerDesign({
+      intake,
+      prepare: (sealed, options) => (this.accdbSource
+        ? prepareLfeaAccdbPreFlight(this.accdbSource, sealed, options)
+        : prepareLinearPipingInputXmlPreFlight(sealed, options)),
+      weightIntake: () => this.createIntake(this.fallbackUnit, intake.requestedProfileId, [LINEAR_PIPING_INPUTXML_DEFAULT_CASE_ID]),
+      weightCaseId: LINEAR_PIPING_INPUTXML_DEFAULT_CASE_ID,
+      onNote: (text) => { this.hangerDesignNote = text; },
+    });
   }
 
   /** Read a CAESAR ACCDB File and run the same pre-flight as InputXML. */
@@ -390,6 +398,7 @@ export class LinearPipingInputXmlSourceWorkflowController {
     this.intake = this.createIntake(fallbackUnit, profileId, this.requestedCaseIds ?? [LINEAR_PIPING_INPUTXML_DEFAULT_CASE_ID]);
     this.preFlight = null;
     this.defaultCasesApplied = false;
+    this.hangerDesignNote = '';
     try {
       this.preFlight = this.prepareIntake(this.intake);
       if (this.requestedCaseIds === null) this.applyDefaultCaseSelection(fallbackUnit, profileId);
@@ -417,7 +426,8 @@ export class LinearPipingInputXmlSourceWorkflowController {
         'Native execution handoff remains disabled.',
       ].join(' ');
     } else {
-      this.message = 'Native InputXML pre-flight BLOCK. No authorization bypass exists and execution remains disabled.';
+      this.message = ['Native InputXML pre-flight BLOCK. No authorization bypass exists and execution remains disabled.',
+        this.hangerDesignNote].filter(Boolean).join(' ');
     }
     this.render();
     return this.preFlight;

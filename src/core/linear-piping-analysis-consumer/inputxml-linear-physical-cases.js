@@ -24,7 +24,8 @@ import {
 } from './inputxml-linear-physical-case-builders.js';
 import { collectAppliedForceSets } from './inputxml-linear-applied-force-sets.js';
 import { appendInputXmlHangerCases } from './inputxml-linear-hanger-cases.js';
-import { collectHangerPreloads } from './inputxml-linear-hanger-preloads.js';
+import { collectConstantEffortHangerLoads, collectHangerPreloads } from './inputxml-linear-hanger-preloads.js';
+import { collectDisplacementMovements } from './inputxml-linear-displacement-loads.js';
 
 export function compileInputXmlLinearPhysicalCases(
   sourcePreparation,
@@ -149,6 +150,12 @@ export function compileInputXmlLinearPhysicalCases(
   }
 
   primitives.hanger.push(...collectHangerPreloads(structural, gravityDirection, ledger));
+  // A constant-effort hanger carries its load wherever the weight acts: it
+  // rides with the gravity primitives into every weight-bearing case.
+  primitives.gravity.push(...collectConstantEffortHangerLoads(structural, gravityDirection, ledger));
+  // Specified-displacement D1 acts where T1 does, so it rides with the
+  // temperature primitives (counted apart from them by thermalCoverageComplete).
+  primitives.thermal.push(...collectDisplacementMovements(structural, ledger));
   const forceSets = collectAppliedForceSets(structural, ledger);
   const cases = buildCases(structural, loadCaseProfile, modelReference, primitives, forceSets);
   cases.sort((left, right) => compareAscii(left.caseId, right.caseId));
@@ -164,7 +171,7 @@ export function compileInputXmlLinearPhysicalCases(
     ...finalizedLedger.map((row) => row.limitationCode),
     ...cases.flatMap((row) => row.loadCase.limitations.map((item) => item.code)),
   ]);
-  const thermalComplete = primitives.thermal.length === structural.segmentBindings.length;
+  const thermalComplete = thermalCoverageComplete(primitives, structural);
 
   return sealInputXmlLinearPhysicalCasePreparation({
     schema: INPUTXML_LINEAR_PHYSICAL_CASE_PREPARATION_SCHEMA,
@@ -190,7 +197,7 @@ export function compileInputXmlLinearPhysicalCases(
       loadLedgerCount: finalizedLedger.length,
       compiledPrimitiveCount: new Set(cases.flatMap((row) => row.primitiveIds)).size,
       pressurePrimitiveCount: primitives.pressure.length,
-      thermalPrimitiveCount: primitives.thermal.length,
+      thermalPrimitiveCount: temperatureCount(primitives),
       hangerPreloadPrimitiveCount: primitives.hanger.length,
       thermalCoverageComplete: thermalComplete,
       sustainedCaseAvailable: true,
@@ -208,6 +215,14 @@ export function compileInputXmlLinearPhysicalCases(
   });
 }
 
+function temperatureCount(primitives) {
+  return primitives.thermal.filter((row) => row.kind === 'TEMPERATURE').length;
+}
+
+function thermalCoverageComplete(primitives, structural) {
+  return temperatureCount(primitives) === structural.segmentBindings.length;
+}
+
 function buildCases(structural, loadCaseProfile, modelReference, primitives, forceSets) {
   const cases = [caseRecord({
     structural, loadCaseProfile, modelReference,
@@ -219,7 +234,7 @@ function buildCases(structural, loadCaseProfile, modelReference, primitives, for
     caseToken: 'WP', caseRole: 'WEIGHT_PRESSURE', primitives: [...primitives.gravity, ...primitives.pressure],
     loadCaseClass: 'MIXED_PHYSICAL', label: 'W+P1', description: 'InputXML self-weight and pressure physical case.',
   }));
-  const thermalComplete = primitives.thermal.length === structural.segmentBindings.length;
+  const thermalComplete = thermalCoverageComplete(primitives, structural);
   if (thermalComplete) {
     cases.push(caseRecord({
       structural, loadCaseProfile, modelReference,

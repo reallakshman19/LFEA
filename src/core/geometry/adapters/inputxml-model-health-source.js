@@ -15,6 +15,9 @@ const CHILD_FEATURES = Object.freeze([
   Object.freeze({ kind: 'ALLOWABLE_STRESS', tags: Object.freeze(['ALLOWABLESTRESS']) }),
   Object.freeze({ kind: 'REDUCER', tags: Object.freeze(['REDUCER', 'REDUCERS', 'REDU', 'REDC', 'REDE']) }),
   Object.freeze({ kind: 'RESTRAINT', tags: Object.freeze(['RESTRAINT', 'RESTRAINTS']) }),
+  // CAESAR specified displacements (equipment nozzles and the like): each
+  // record keeps its VECTOR children, which carry the values per vector.
+  Object.freeze({ kind: 'DISPLACEMENTS', tags: Object.freeze(['DISPLACEMENTS']) }),
 ]);
 
 const FIELD_SPECS = Object.freeze([
@@ -223,6 +226,9 @@ function childFeatureRecords(parentFeatureId, inner) {
       kind,
       ordinal,
       rawAttributes: sortedRecord(tag.attributes),
+      ...(kind === 'DISPLACEMENTS'
+        ? { vectors: findElements(tag.inner, 'VECTOR').map((vector) => sortedRecord(vector.attributes)) }
+        : {}),
     }))
   )));
 }

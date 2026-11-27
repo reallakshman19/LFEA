@@ -120,6 +120,21 @@ export function restraintUnilateralAction(classification) {
   return Object.freeze({ dof: classification.targetDofs[0], resistedSign: sign });
 }
 
+/**
+ * The DOFs a restraint holds rigidly in both directions with nothing else
+ * attached (no gap, spring rate or connecting node): an anchor's six, or one
+ * axis-aligned two-way translation. Anything else on those DOFs at the same
+ * node acts in parallel with a rigid hold and adds nothing.
+ */
+export function restraintRigidTwoWayDofs(classification) {
+  if (!classification?.active || classification.nodeId === null) return [];
+  if (classification.gapActive || classification.finiteStiffnessActive || classification.connectingNodeActive) return [];
+  if (classification.typeCode === '0') return [...RESTRAINT_DOFS];
+  if (!EXACT_BIDIRECTIONAL_CODES.has(classification.typeCode)) return [];
+  if (classification.targetDofs.length !== 1 || !axisAlignedDirection(classification.direction)) return [];
+  return [...classification.targetDofs];
+}
+
 export function restraintApproximationCodes(classification) {
   const codes = [];
   if (classification.gapActive) codes.push('GENERIC_APPROX_GAP_CLOSED');

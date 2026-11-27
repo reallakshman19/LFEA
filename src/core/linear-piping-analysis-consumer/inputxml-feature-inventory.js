@@ -9,9 +9,16 @@ import {
 } from './inputxml-feature-inventory-restraints.js';
 import {
   classifyPredefinedHanger,
+  hangerDesignFor,
   predefinedHangerDispositions,
 } from './inputxml-predefined-hanger.js';
 import { isSifSlotUnfilled, isForcesMomentsSlotUnfilled } from './inputxml-feature-inventory-slots.js';
+import { mergeCoveredDuplicateRestraints } from './inputxml-restraint-duplicate-merge.js';
+import {
+  classifySpecifiedDisplacement,
+  specifiedDisplacementActive,
+  specifiedDisplacementDispositions,
+} from './inputxml-specified-displacement.js';
 import {
   productionAuthorizedPressureEffects,
   productionComponentIsRepresentable,
@@ -20,7 +27,14 @@ import {
 
 const SIF_TEE_CODES = new Set([3, 5]);
 
-export function buildInputXmlFeatureInventory(sourceBundle) {
+/**
+ * `options.hangerDesign` carries the two-pass design of hangers CAESAR would
+ * size (lfea-hanger-design.js): { mode: 'RESTRAINED_WEIGHT' } for the weight
+ * pass, then { mode: 'CONSTANT_EFFORT', loads: { [sourceFeatureId]: N } }.
+ */
+export function buildInputXmlFeatureInventory(sourceBundle, options) {
+  const hangerDesign = options?.hangerDesign ?? null;
+  const modelNodeIds = new Set((sourceBundle.geometry.nodes ?? []).map((node) => String(node.id)));
   if (!sourceBundle || !Array.isArray(sourceBundle.elementRecords)
     || !Array.isArray(sourceBundle.geometry?.segments)) {
     throw new TypeError('InputXML feature inventory requires a retained source bundle.');
@@ -60,17 +74,19 @@ export function buildInputXmlFeatureInventory(sourceBundle) {
 
     for (const feature of element.childFeatures ?? []) {
       rows.push(childInventory({
-        element, feature, segment, componentInventoryId, stiffnessToSi, lengthUnit,
+        element, feature, segment, componentInventoryId, stiffnessToSi, lengthUnit, hangerDesign, modelNodeIds,
       }));
     }
     rows.push(...fieldInventory(element, segment));
   }
   rows.sort((left, right) => compareAscii(left.inventoryId, right.inventoryId));
   requireUniqueInventory(rows);
-  return Object.freeze(rows);
+  return Object.freeze(mergeCoveredDuplicateRestraints(rows));
 }
 
-function childInventory({ element, feature, segment, componentInventoryId, stiffnessToSi, lengthUnit }) {
+function childInventory({
+  element, feature, segment, componentInventoryId, stiffnessToSi, lengthUnit, hangerDesign, modelNodeIds,
+}) {
   const kind = String(feature.kind ?? 'UNKNOWN').toUpperCase();
   const sourceFeatureId = String(feature.sourceFeatureId);
   const common = {
@@ -105,11 +121,23 @@ function childInventory({ element, feature, segment, componentInventoryId, stiff
     return inventoryRow({ ...common, classification: { kind }, dispositions: both(codeOnlyDisposition('CODE_STRESS_INPUT_ONLY')) });
   }
   if (kind === 'HANGER') {
-    const classification = classifyPredefinedHanger(feature.rawAttributes, stiffnessToSi, lengthUnit);
+    const classification = classifyPredefinedHanger(
+      feature.rawAttributes, stiffnessToSi, lengthUnit, hangerDesignFor(hangerDesign, sourceFeatureId),
+    );
     return inventoryRow({
       ...common,
       classification,
       dispositions: predefinedHangerDispositions(classification),
+    });
+  }
+  if (kind === 'DISPLACEMENTS') {
+    const classification = classifySpecifiedDisplacement(feature, lengthUnit, modelNodeIds);
+    return inventoryRow({
+      ...common,
+      active: specifiedDisplacementActive(classification),
+      targetIds: { nodeIds: [classification.nodeId], segmentIds: [element.canonicalSegmentId] },
+      classification,
+      dispositions: specifiedDisplacementDispositions(classification),
     });
   }
   if (kind === 'FORCES_MOMENTS') {

@@ -29,8 +29,14 @@ export function projectInputXmlAnalyticalGeometry(prepared) {
   });
 }
 
-export function requireExplainedConditioning(sourceGeometry, conditionedGeometry, spanOrigin) {
-  const sourceIds = new Set(sourceGeometry.segments.map((row) => String(row.id)));
+/**
+ * `consumedSegments` names source spans a bend's arc consumed whole (their
+ * far node is the bend's far tangent): they trace to that bend, not to a span.
+ */
+export function requireExplainedConditioning(sourceGeometry, conditionedGeometry, spanOrigin, consumedSegments) {
+  const consumed = consumedSegments ?? {};
+  const sourceIds = new Set(sourceGeometry.segments.map((row) => String(row.id))
+    .filter((id) => consumed[id] === undefined));
   const covered = new Set();
   const unexplained = [];
   for (const segment of conditionedGeometry.segments) {

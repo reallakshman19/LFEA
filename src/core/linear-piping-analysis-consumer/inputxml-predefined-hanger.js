@@ -6,6 +6,7 @@ import {
 import {
   DISCLOSED_GENERIC_ANALYZER_APPROXIMATION_PROFILE as APPROXIMATE,
   STRICT_INPUTXML_LINEAR_STATIC_PROFILE as STRICT,
+  approximationDisposition,
   exactDisposition,
   invalidDisposition,
   unsupportedDisposition,
@@ -14,7 +15,29 @@ import {
 const Y_UP = Object.freeze([0, 1, 0]);
 const DRAFT_CODE = 'DRAFT_SPRING_SUPPORT_NO_REFERENCE';
 
-export function classifyPredefinedHanger(attributes, stiffnessToSi, lengthUnit) {
+/**
+ * A hanger CAESAR would size (no spring rate declared) is designed in two
+ * passes by lfea-hanger-design.js: held rigid in a weight-only solve, then
+ * carried as a constant-effort support of that restrained-weight load in every
+ * case -- the load CAESAR's own hanger design starts from, without its spring
+ * selection or load variation. NOT ENGINEER-REVIEWED.
+ */
+export const LFEA_HANGER_RESTRAINED_WEIGHT_PASS = 'LFEA_HANGER_RESTRAINED_WEIGHT_PASS';
+export const LFEA_HANGER_CONSTANT_EFFORT_DEFAULT = 'LFEA_HANGER_CONSTANT_EFFORT_DEFAULT';
+
+/** This hanger's part of the inventory's `hangerDesign` option, or null. */
+export function hangerDesignFor(hangerDesign, sourceFeatureId) {
+  if (hangerDesign?.mode === 'RESTRAINED_WEIGHT') return Object.freeze({ mode: 'RESTRAINED_WEIGHT' });
+  if (hangerDesign?.mode === 'CONSTANT_EFFORT') {
+    const load = hangerDesign.loads?.[sourceFeatureId];
+    return typeof load === 'number' && Number.isFinite(load)
+      ? Object.freeze({ mode: 'CONSTANT_EFFORT', load, basis: hangerDesign.basis ?? null })
+      : null;
+  }
+  return null;
+}
+
+export function classifyPredefinedHanger(attributes, stiffnessToSi, lengthUnit, design) {
   const nodeId = nodeAttribute(attributes, ['NODE']);
   const springRate = optionalNumber(attributes, ['SPRING_RATE']);
   const coldLoad = optionalNumber(attributes, ['COLD_LOAD']);
@@ -30,7 +53,15 @@ export function classifyPredefinedHanger(attributes, stiffnessToSi, lengthUnit) 
     ? coldLoadDeclared * forceToSi
     : null;
   const fullyPredefined = rate.stiffnessDeclared !== null && coldLoadDeclared !== null && countValid;
+  const countInvalid = numberOfHangers !== null && !countValid;
+  const designRequired = !fullyPredefined && !countInvalid && nodeId !== null && rate.stiffnessDeclared === null;
+  const designMode = designRequired ? design?.mode ?? null : null;
+  const constantEffortLoad = designMode === 'CONSTANT_EFFORT' ? Math.max(0, design.load) : null;
   return Object.freeze({
+    designRequired,
+    designMode,
+    constantEffortLoad,
+    constantEffortBasis: designMode === 'CONSTANT_EFFORT' ? design.basis ?? null : null,
     kind: 'HANGER',
     nodeId,
     hangerType: optionalNumber(attributes, ['HGR_TYPE']),
@@ -59,6 +90,8 @@ export function predefinedHangerDispositions(classification) {
   if (classification.nodeId === null) {
     return both(invalidDisposition('MODEL_HANGER_NODE_INVALID'));
   }
+  if (classification.designMode === 'RESTRAINED_WEIGHT') return designed(LFEA_HANGER_RESTRAINED_WEIGHT_PASS);
+  if (classification.designMode === 'CONSTANT_EFFORT') return designed(LFEA_HANGER_CONSTANT_EFFORT_DEFAULT);
   if (!classification.fullyPredefined) {
     if (classification.numberOfHangersDeclared !== null && classification.numberOfHangers === null) {
       return both(invalidDisposition('MODEL_HANGER_COUNT_INVALID'));
@@ -73,7 +106,13 @@ export function predefinedHangerDispositions(classification) {
   return both(exactDisposition());
 }
 
+function designed(code) {
+  return Object.freeze({ [STRICT]: unsupportedDisposition('MODEL_HANGER_PREDEFINED_DATA_INCOMPLETE'), [APPROXIMATE]: approximationDisposition(code) });
+}
+
 export function predefinedHangerLimitationCodes(classification) {
+  if (classification?.designMode === 'RESTRAINED_WEIGHT') return Object.freeze([LFEA_HANGER_RESTRAINED_WEIGHT_PASS]);
+  if (classification?.designMode === 'CONSTANT_EFFORT') return Object.freeze([LFEA_HANGER_CONSTANT_EFFORT_DEFAULT]);
   return classification?.springRateTotal !== null && classification?.coldLoadTotal !== null
     ? Object.freeze([DRAFT_CODE])
     : Object.freeze([]);
