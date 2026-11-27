@@ -157,8 +157,16 @@ function chordChainPoints(bindings, geometry, sourceSegmentId) {
   return [point(ordered[0].startNodeId), ...ordered.map((segment) => point(segment.endNodeId))];
 }
 
+/** The factor calculator's own smooth-90 applicability limit (linear-fea-b31-factor-calculator/applicability.js). */
+const SMOOTH_90_ANGLE_TOLERANCE_DEGREES = 1e-6;
+
 function factorRequest(input) {
   const section = input.physicalSection;
+  const bendAngleDegrees = input.bendRecord.arcLength / input.sourceSegment.meta.bendComputedRadius * 180 / Math.PI;
+  // "Apply smooth 90° correction where applicable": only a 90° bend is
+  // corrected; any other angle (a real model's 45° bends) keeps its uncorrected
+  // factor rather than failing the whole model.
+  const smooth90Applicable = Math.abs(bendAngleDegrees - 90) <= SMOOTH_90_ANGLE_TOLERANCE_DEGREES;
   return {
     schema: FACTOR_CALCULATION_REQUEST_SCHEMA,
     calculationId: `${input.componentId}.B31.FACTOR`,
@@ -176,8 +184,8 @@ function factorRequest(input) {
       // retained for code stress alone cannot quietly change the stiffness.
       pressure: input.stiffeningPressure,
       elasticModulus: positive(input.material.materialState?.elasticModulus, 'elasticModulus', input.sourceSegment.id),
-      bendAngleDegrees: input.bendRecord.arcLength / input.sourceSegment.meta.bendComputedRadius * 180 / Math.PI,
-      smooth90FlexibilityCorrection: input.factorAuthority.smooth90FlexibilityCorrection,
+      bendAngleDegrees,
+      smooth90FlexibilityCorrection: input.factorAuthority.smooth90FlexibilityCorrection && smooth90Applicable,
       sourceEvidence: {
         sourceId: String(input.sourceSegment.sourceComponentUid ?? input.sourceSegment.id),
         sourceRevision: String(input.sourcePreparation.sourceBundleSemanticHash),

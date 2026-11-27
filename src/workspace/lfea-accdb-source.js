@@ -51,8 +51,8 @@ export function createLfeaAccdbIntake(source, { requestedProfileId, requestedCas
   });
 }
 
-export function prepareLfeaAccdbPreFlight(source, intake) {
-  return prepareLinearPipingAccdbPreFlight(intake, source.sourceBundle);
+export function prepareLfeaAccdbPreFlight(source, intake, options = {}) {
+  return prepareLinearPipingAccdbPreFlight(intake, source.sourceBundle, options);
 }
 
 async function sha256Hex(buffer) {

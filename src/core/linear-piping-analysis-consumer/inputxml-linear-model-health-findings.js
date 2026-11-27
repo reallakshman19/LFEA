@@ -13,6 +13,7 @@ import {
   requireUniqueFindingIds,
   worstDisposition,
 } from './inputxml-linear-model-health-finding-support.js';
+import { isMergedDuplicateRestraint } from './inputxml-restraint-duplicate-merge.js';
 
 export function collectInputXmlLinearModelHealthFindings({ sourceBundle, graph, proximity, inventory }) {
   const findings = [
@@ -145,7 +146,7 @@ function inventoryFindings(inventory) {
 function duplicateRestraintFindings(inventory) {
   const groups = new Map();
   for (const row of inventory) {
-    if (!row.active || row.sourceKind !== 'RESTRAINT') continue;
+    if (!row.active || row.sourceKind !== 'RESTRAINT' || isMergedDuplicateRestraint(row)) continue;
     const nodeId = row.classification?.nodeId;
     const targetDofs = row.classification?.targetDofs ?? [];
     if (nodeId === null || nodeId === undefined || targetDofs.length === 0) continue;

@@ -14,9 +14,10 @@ import {
 
 const WELDING_TEE_TYPE = 3;
 const MOMENT_DIRECTION_MAPPING = Object.freeze({ inPlaneField: 'my', outOfPlaneField: 'mz' });
+// 1 + cos(run-leg angle): 1e-6 is 0.08°; 1e-9 refused a real 0.008° tee (docs/PRACTICAL_ANALYSIS_POLICY.md).
 const RUN_COLLINEARITY_TOLERANCE = Object.freeze({
-  value: 1e-9,
-  source: 'LFEA-B3.2_DIRECTION_VECTOR_TOPOLOGY_V1',
+  value: 1e-6,
+  source: 'LFEA_PRACTICAL_RUN_COLLINEARITY_V1',
 });
 const NOMINAL_DIAMETER_RELATIVE_TOLERANCE = Object.freeze({
   value: 1e-3,

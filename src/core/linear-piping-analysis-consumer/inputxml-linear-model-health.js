@@ -31,7 +31,7 @@ export function diagnoseInputXmlLinearModelHealth(sourceBundle, options) {
     options.proximityReport ?? diagnoseInputXmlTopologyProximity(accepted, options.proximity ?? {}),
     accepted,
   );
-  const inventory = buildInputXmlFeatureInventory(accepted);
+  const inventory = buildInputXmlFeatureInventory(accepted, { hangerDesign: options.hangerDesign ?? null });
   const findings = collectInputXmlLinearModelHealthFindings({
     sourceBundle: accepted,
     graph,

@@ -54,8 +54,10 @@ export function prepareLinearPipingInputXmlPreFlight(value, options) {
   }, {
     validateSourceRequest: requireNativeSourceOnlyAnalysisRequest,
     // The LFEA geometry allowance, in the unit the diagnostics see. A caller's
-    // own proximityOptions (the ACCDB intake passes metres) replace it.
+    // own proximityOptions (the ACCDB intake passes metres) replace it. The
+    // topology graph reads the same allowance for loop-closure misses.
     proximityOptions: lfeaProximityOptionsForSourceUnit(intake.unitAuthority.sourceUnit),
+    topologyOptions: lfeaProximityOptionsForSourceUnit(intake.unitAuthority.sourceUnit),
     ...(options.diagnosticsOptions ?? {}),
   });
   const bendFactorAuthority = options.bendFactorAuthority === undefined

@@ -66,6 +66,7 @@ export function compileInputXmlLinearStructure(
     prepared.normalizedGeometry,
     conditionedTopology.geometry,
     retopology.spanOrigin,
+    retopology.consumedSegments,
   );
 
   const materialByHash = new Map(prepared.materialResolutions

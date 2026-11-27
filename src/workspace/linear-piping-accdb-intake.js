@@ -76,6 +76,7 @@ export function prepareLinearPipingAccdbPreFlight(intake, sourceBundle, options 
       // disagreed, a model would pass the panel and fail the pre-flight (or
       // the reverse) with no way for the engineer to tell which was right.
       proximityOptions: lfeaProximityOptions(options.diagnosticsOptions?.proximityOptions ?? {}),
+      topologyOptions: lfeaProximityOptions(options.diagnosticsOptions?.topologyOptions ?? {}),
       ...(options.diagnosticsOptions ?? {}),
       parseSource: () => sourceBundle,
     },
