@@ -14,6 +14,12 @@ import {
 } from './linear-piping-inputxml-prefea.js';
 import { renderLinearPipingInputXmlDiagnostics } from './linear-piping-inputxml-diagnostics-view.js';
 import { LFEA_DEFAULT_CASE_SELECTION_SOURCE, lfeaDefaultRequestedCaseIds } from './lfea-default-case-selection.js';
+import {
+  createLfeaAccdbIntake,
+  isLfeaAccdbFileName,
+  prepareLfeaAccdbPreFlight,
+  readLfeaAccdbSource,
+} from './lfea-accdb-source.js';
 
 export const LINEAR_PIPING_INPUTXML_SOURCE_WORKFLOW_SCHEMA = 'linear-piping-inputxml-source-workflow/v1';
 
@@ -53,13 +59,14 @@ export class LinearPipingInputXmlSourceWorkflowController {
     this.panelContainer = panelContainer;
     this.documentRef = documentRef;
     this.sourceInput = null;
+    this.accdbSource = null;
     this.inspection = null;
     this.fallbackUnit = null;
     this.intake = null;
     this.preFlight = null;
     this.requestedCaseIds = null;
     this.defaultCasesApplied = false;
-    this.message = 'Import a CAESAR II InputXML source to begin governed pre-flight.';
+    this.message = 'Import a CAESAR II InputXML or ACCDB model to begin governed pre-flight.';
     this.error = '';
     this.elements = null;
     this.initialized = false;
@@ -82,6 +89,7 @@ export class LinearPipingInputXmlSourceWorkflowController {
 
   loadSource(input, options = {}) {
     const retained = retainSourceInput(input);
+    this.accdbSource = null;
     this.sourceInput = retained;
     this.inspection = inspectLinearPipingInputXmlSource(retained);
     this.fallbackUnit = null;
@@ -177,6 +185,7 @@ export class LinearPipingInputXmlSourceWorkflowController {
   }
 
   clear() {
+    this.accdbSource = null;
     this.sourceInput = null;
     this.inspection = null;
     this.fallbackUnit = null;
@@ -202,6 +211,16 @@ export class LinearPipingInputXmlSourceWorkflowController {
   async loadSelectedFile() {
     const file = this.elements?.fileInput.files?.[0];
     if (!file) return;
+    if (isLfeaAccdbFileName(file.name)) {
+      try {
+        await this.loadAccdbFile(file);
+      } catch {
+        // prepareSource has already recorded the failure on the panel.
+      } finally {
+        if (this.elements) this.elements.fileInput.value = '';
+      }
+      return;
+    }
     try {
       this.loadSource({ fileName: file.name, content: await file.text() });
     } catch (error) {
@@ -317,10 +336,8 @@ export class LinearPipingInputXmlSourceWorkflowController {
     const defaults = lfeaDefaultRequestedCaseIds(this.preFlight);
     if (defaults.length <= 1) return;
     try {
-      const intake = createLinearPipingInputXmlIntake(this.sourceInput, {
-        fallbackUnit, requestedProfileId: profileId, requestedCaseIds: defaults,
-      });
-      const preFlight = prepareLinearPipingInputXmlPreFlight(intake);
+      const intake = this.createIntake(fallbackUnit, profileId, defaults);
+      const preFlight = this.prepareIntake(intake);
       if (preFlight.status === 'BLOCK' && this.preFlight.status !== 'BLOCK') return;
       this.intake = intake;
       this.preFlight = preFlight;
@@ -330,18 +347,51 @@ export class LinearPipingInputXmlSourceWorkflowController {
     }
   }
 
+  /** Seal the intake for the loaded source: InputXML text or a CAESAR ACCDB. */
+  createIntake(fallbackUnit, profileId, requestedCaseIds) {
+    if (this.accdbSource) return createLfeaAccdbIntake(this.accdbSource, { requestedProfileId: profileId, requestedCaseIds });
+    return createLinearPipingInputXmlIntake(this.sourceInput, { fallbackUnit, requestedProfileId: profileId, requestedCaseIds });
+  }
+
+  prepareIntake(intake) {
+    return this.accdbSource
+      ? prepareLfeaAccdbPreFlight(this.accdbSource, intake)
+      : prepareLinearPipingInputXmlPreFlight(intake);
+  }
+
+  /** Read a CAESAR ACCDB File and run the same pre-flight as InputXML. */
+  async loadAccdbFile(file) {
+    this.error = '';
+    this.message = `Reading ${file.name}…`;
+    this.render();
+    let source;
+    try {
+      source = await readLfeaAccdbSource(file);
+    } catch (error) {
+      this.error = errorMessage(error);
+      this.message = `CAESAR ACCDB ${file.name} could not be read. The previous source remains unchanged.`;
+      this.render();
+      return null;
+    }
+    this.accdbSource = source;
+    this.sourceInput = Object.freeze({ fileName: source.fileName, content: null });
+    this.inspection = Object.freeze({
+      status: 'UNIT_DECLARED', contentSha256: source.sha256, sourceUnit: 'm', unitDeclared: true, unitDiagnostics: [],
+    });
+    this.fallbackUnit = null;
+    this.intake = null;
+    this.preFlight = null;
+    return this.prepareSource(null);
+  }
+
   prepareSource(fallbackUnit) {
     this.fallbackUnit = fallbackUnit;
     const profileId = this.elements?.profileSelect.value ?? LINEAR_PIPING_INPUTXML_DEFAULT_PROFILE_ID;
-    this.intake = createLinearPipingInputXmlIntake(this.sourceInput, {
-      fallbackUnit,
-      requestedProfileId: profileId,
-      requestedCaseIds: this.requestedCaseIds ?? [LINEAR_PIPING_INPUTXML_DEFAULT_CASE_ID],
-    });
+    this.intake = this.createIntake(fallbackUnit, profileId, this.requestedCaseIds ?? [LINEAR_PIPING_INPUTXML_DEFAULT_CASE_ID]);
     this.preFlight = null;
     this.defaultCasesApplied = false;
     try {
-      this.preFlight = prepareLinearPipingInputXmlPreFlight(this.intake);
+      this.preFlight = this.prepareIntake(this.intake);
       if (this.requestedCaseIds === null) this.applyDefaultCaseSelection(fallbackUnit, profileId);
     } catch (error) {
       this.error = errorMessage(error);
@@ -405,7 +455,7 @@ function createSourceWorkflowSection(doc) {
   header.className = 'accordion-section-header';
   const title = doc.createElement('span');
   title.className = 'accordion-section-title';
-  title.textContent = '1 Source → 2 Pre-flight — CAESAR II InputXML';
+  title.textContent = '1 Source → 2 Pre-flight — CAESAR II InputXML or ACCDB';
   header.append(title);
 
   const body = doc.createElement('div');
@@ -413,11 +463,11 @@ function createSourceWorkflowSection(doc) {
   const toolbar = doc.createElement('div');
   toolbar.className = 'linear-piping-results-workbench__toolbar';
 
-  const importButton = button(doc, 'Import CAESAR II InputXML');
+  const importButton = button(doc, 'Import CAESAR II InputXML or ACCDB');
   importButton.dataset.action = 'import-linear-piping-inputxml-source';
   const fileInput = doc.createElement('input');
   fileInput.type = 'file';
-  fileInput.accept = '.xml,.inputxml,application/xml,text/xml';
+  fileInput.accept = '.xml,.inputxml,application/xml,text/xml,.accdb,.mdb';
   fileInput.hidden = true;
   fileInput.dataset.role = 'linear-piping-inputxml-source-file';
 
@@ -525,7 +575,7 @@ function renderSourceSummary(doc, root, controller) {
   }
   const rows = [];
   rows.push(['File', controller.sourceInput.fileName]);
-  rows.push(['Format', 'CAESAR II InputXML']);
+  rows.push(['Format', controller.accdbSource ? 'CAESAR II ACCDB (model tables read in the browser)' : 'CAESAR II InputXML']);
   rows.push(['SHA-256', controller.inspection?.contentSha256 ?? 'Unavailable']);
   if (controller.intake) {
     rows.push(['Length unit', `${controller.intake.unitAuthority.sourceUnit} — ${controller.intake.unitAuthority.authority}`]);

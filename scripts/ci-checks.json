@@ -163,6 +163,7 @@
     "scripts/lfea-b31-sustained-caesar-comparison.mjs",
     "scripts/lfea-b31-expansion-caesar-comparison.mjs",
     "scripts/lfea-b31-inputxml-caesar-comparison.mjs",
+    "scripts/lfea-accdb-source-import-check.mjs",
     "scripts/lfea-unilateral-active-set-check.mjs",
     "scripts/lfea-preflight-phase1-indexed-model-check.mjs",
     "scripts/lfea-preflight-phase1-live-ui-check.mjs",

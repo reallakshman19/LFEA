@@ -1,6 +1,7 @@
 # Modules not wired into the standalone app
 
 Generated from the import graph on 2026-11-25. Regenerate this file after wiring or pruning anything.
+Hand-edited 2026-11-27: `src/workspace/linear-piping-accdb-intake.js` is now reached (ACCDB import on the Source tab, through `src/workspace/lfea-accdb-source.js`), so it is removed below; the counts are as generated.
 
 | Group | Files |
 |---|---|
@@ -127,7 +128,6 @@ Engineering and model code exercised by the LFEA checks. Keep these while their 
 | `src/workspace/lfea-support-actions-panel.js` | 1 |
 | `src/workspace/lfea-topology-edit-source-capture.js` | 1 |
 | `src/workspace/lfea-workbench.js` | 1 |
-| `src/workspace/linear-piping-accdb-intake.js` | 1 |
 | `src/workspace/linear-piping-prerun-check.js` | 1 |
 | `src/workspace/linear-piping-prerun-view.js` | 1 |
 | `src/workspace/linear-piping-results-view.js` | 1 |
