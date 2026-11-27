@@ -98,6 +98,37 @@ export function buildB31SustainedCheck({ preFlight, elementId, end, caseId, chec
   });
 }
 
+/**
+ * Build one DISPLACEMENT_STRESS_RANGE (expansion) check: the action range from
+ * the sustained case to the operating case (CAESAR's EXP = OPE - SUS), with
+ * the fitting's displacement SIFs (or unity), on the nominal (uncorroded)
+ * section; a reducer end uses that end's nominal size. The allowable is B31.3
+ * Eq. (1a), f (1.25 Sc + 0.25 Sh), from the edition dataset.
+ */
+export function buildB31ExpansionCheck({
+  preFlight, elementId, end, fromCaseId, toCaseId, checkId, fitting = null, coldTemperature,
+}) {
+  const structural = preFlight.preparation.structuralPreparation;
+  const binding = structural.segmentBindings.find((row) => row.elementId === elementId);
+  if (!binding) throw authoringError('LFEA_B31_AUTHORING_ELEMENT_MISSING', `Element ${elementId} is not a governed structural binding.`);
+  const nominal = structural.sectionResolutions.find((row) => row.semanticHash === binding.analysisSectionSemanticHash);
+  const endSection = fitting?.endSection ?? null;
+  return Object.freeze({
+    checkId, category: 'DISPLACEMENT_STRESS_RANGE', elementId, end,
+    combinationId: `${toCaseId}-MINUS-${fromCaseId}`,
+    actionSource: Object.freeze({ kind: 'CASE_RANGE', fromCaseId, toCaseId }),
+    evaluationCaseId: toCaseId,
+    stressFactorSet: fitting?.stressFactorSet
+      ?? unityStraightPipeStressFactorSet(elementId, binding.sourceSegmentId ?? binding.sourceFeatureId ?? elementId),
+    sectionBasisReason: `B31.3 expansion range: nominal (uncorroded) section${endSection ? ', at the reducer end size' : ''}, as CAESAR with corroded stress cases off.`,
+    sustainedSectionResolution: endSection && nominal ? sustainedEndSection(nominal, endSection, 0, elementId, end) : null,
+    pressureStressContribution: null,
+    coldTemperature,
+    sustainedStress: null,
+    occasionalCategoryId: null,
+  });
+}
+
 /** CORR_ALLOW in metres as resolved by intake (explicit or inherited), else 0. */
 export function corrosionAllowanceFor(preFlight, binding) {
   const records = preFlight?.diagnostics?.sourceBundle?.elementRecords ?? [];

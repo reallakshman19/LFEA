@@ -1,6 +1,8 @@
 import { semanticHash } from '../core/shared-piping-model/canonical-json.js';
-import { sealCodeProfile, sealEditionDataset } from '../core/linear-fea-b31-code-engine/index.js';
-import { buildB31SustainedCheck, listB31SustainedCandidates } from './native-b31-authoring.js';
+import {
+  DISPLACEMENT_RANGE_EQ17_AXIAL_TORSION_RULE, sealCodeProfile, sealEditionDataset,
+} from '../core/linear-fea-b31-code-engine/index.js';
+import { buildB31ExpansionCheck, buildB31SustainedCheck, listB31SustainedCandidates } from './native-b31-authoring.js';
 import { LFEA_PRACTICAL_FITTING_SOURCE, lfeaB31EndFittings, lfeaFittingSummary } from './practical-b31-fittings.js';
 
 /**
@@ -57,7 +59,8 @@ export function deriveLfeaB31AuthorityInput(preFlight, { scMpa, shMpa }, { weigh
     editionStandard: 'ASME_B31_3_2024',
     flexibilitySource: 'ASME_B31J_2023',
     temperatureInterpolationPolicy: 'LINEAR_BRACKET_INTERPOLATION_V1',
-    displacementRangeCombinationRuleId: 'DISPLACEMENT_RANGE_COLD_HOT_CYCLE_REDUCTION_LINEAR_V1',
+    // Range stress per B31.3 (2016+) Eq. (17), with Sa and 2 St, as CAESAR (measured on BM4_L CASE 14).
+    displacementRangeCombinationRuleId: DISPLACEMENT_RANGE_EQ17_AXIAL_TORSION_RULE,
     occasionalDurationFactors: [],
     liberalAllowableUse: false,
     liberalAllowableUpliftFactor: null,
@@ -75,9 +78,9 @@ export function deriveLfeaB31AuthorityInput(preFlight, { scMpa, shMpa }, { weigh
     materialId,
     allowablePoints,
     displacementRangeCoefficients: {
-      coldWeight: declared(1.25, 'B31.3 Eq. (1a) form, not used by SUSTAINED'),
-      hotWeight: declared(0.25, 'B31.3 Eq. (1a) form, not used by SUSTAINED'),
-      cycleReductionFactor: declared(1, 'f = 1, not used by SUSTAINED'),
+      coldWeight: declared(1.25, 'B31.3 Eq. (1a) SA = f (1.25 Sc + 0.25 Sh): Sc weight'),
+      hotWeight: declared(0.25, 'B31.3 Eq. (1a) SA = f (1.25 Sc + 0.25 Sh): Sh weight'),
+      cycleReductionFactor: declared(1, LFEA_EXPANSION_CYCLE_FACTOR_SOURCE),
     },
     weldJointFactor: declared(1, 'W = 1 assumed'),
     semanticHash: '',
@@ -117,23 +120,64 @@ export function runLfeaPracticalB31Check(runtime, allowables) {
   if (!caseIds.length) throw practicalError('LFEA_B31_PRACTICAL_RUN_REQUIRED', 'Run the analysis first, then run the code check.');
   deriveLfeaB31AuthorityInput(preFlight, allowables, { weightOnly: true }); // validates Sc/Sh and model
   runtime.practicalB31Allowables = { scMpa: Number(allowables.scMpa), shMpa: Number(allowables.shMpa) };
-  return publishPractical(runtime, deriveLfeaB31AuthorityInput(preFlight, allowables, { caseIds }), allowables, '');
+  const derived = deriveLfeaB31AuthorityInput(preFlight, allowables, { caseIds });
+  const expansion = deriveLfeaB31ExpansionChecks(preFlight, derived, caseIds);
+  publishPractical(runtime, expansion.checks.length
+    ? { ...derived, input: { ...derived.input, checks: [...derived.input.checks, ...expansion.checks] } }
+    : derived, allowables);
+  return statusLine(derived, expansion);
 }
 
-function publishPractical(runtime, derived, allowables, note) {
+/** Expansion range: the operating case minus the sustained case the SUS checks used. */
+export const LFEA_EXPANSION_CYCLE_FACTOR_SOURCE = 'NOT ENGINEER-REVIEWED (LFEA default: f = 1, 7000 cycles or fewer)';
+const SUSTAINED_PREFERENCE = Object.freeze(['IXP-WP', 'IXP-W']);
+const OPERATING_PREFERENCE = Object.freeze(['IXP-WPT', 'IXP-WT']);
+
+export function deriveLfeaB31ExpansionChecks(preFlight, derived, caseIds) {
+  const fromCaseId = SUSTAINED_PREFERENCE.find((id) => caseIds.includes(id)) ?? null;
+  const toCaseId = OPERATING_PREFERENCE.find((id) => caseIds.includes(id)) ?? null;
+  if (!fromCaseId || !toCaseId) return { checks: [], fromCaseId, toCaseId };
+  const found = lfeaB31EndFittings(preFlight);
+  const hot = derived.input.editionDataset.allowablePoints.at(-1).absoluteTemperature;
+  const coldTemperature = {
+    value: Math.min(LFEA_B31_REFERENCE_COLD_TEMPERATURE_K, hot),
+    source: 'LFEA_B31_REFERENCE_COLD_TEMPERATURE: 70 F, the B31.3 Sc reference',
+  };
+  const checks = derived.input.checks
+    .filter((check) => check.actionSource.caseId === fromCaseId)
+    .map((check) => buildB31ExpansionCheck({
+      preFlight, elementId: check.elementId, end: check.end, fromCaseId, toCaseId,
+      checkId: `B31-EXP-${check.elementId}-${check.end}-${toCaseId}-${fromCaseId}`,
+      fitting: found.fittings.get(`${check.elementId}:${check.end}`) ?? null,
+      coldTemperature,
+    }));
+  return { checks, fromCaseId, toCaseId };
+}
+
+function publishPractical(runtime, derived, allowables) {
   const staged = runtime.stageNativeB31Authority(derived.input);
   runtime.authorizeNativeB31Authority({
     reviewerIdentity: LFEA_B31_PRACTICAL_REVIEWER,
     reason: `Practical run: Sc ${allowables.scMpa} MPa, Sh ${allowables.shMpa} MPa entered by user; W = 1; `
-      + `unity stress factors on straight pipe; ${fittingText(derived.fittings) || 'no reducer or tee ends'}; sustained wall less corrosion allowance.`,
+      + `unity stress factors on straight pipe; ${fittingText(derived.fittings) || 'no reducer or tee ends'}; sustained wall less corrosion allowance; `
+      + `expansion SE = sqrt((|Sa| + Sb)^2 + (2 St)^2) on the nominal section, allowable f (1.25 Sc + 0.25 Sh) with ${LFEA_EXPANSION_CYCLE_FACTOR_SOURCE}.`,
     acceptedAuthoritySemanticHash: staged.authority.semanticHash,
   });
-  runtime.publishNativeB31Application();
+  return runtime.publishNativeB31Application();
+}
+
+function statusLine(derived, expansion) {
   const skipped = derived.skippedMaterialCount
     ? ` ${derived.skippedCheckCount} check(s) on ${derived.skippedMaterialCount} other material(s) not run (one material per check set).`
     : '';
+  const weldoletWarning = derived.fittings.weldoletEnds
+    ? ' Weldolet run ends use the Table D300 SIF; CAESAR\'s B31J SIF was about 1.5 times higher on BM4_L, so expansion stress there may be under-predicted.'
+    : '';
+  const exp = expansion.checks.length
+    ? ` B31.3 expansion check: ${expansion.checks.length} check(s), ${expansion.toCaseId} minus ${expansion.fromCaseId}, allowable f (1.25 Sc + 0.25 Sh), f = 1 (LFEA default).${weldoletWarning}`
+    : ' No expansion check: it needs an operating (temperature) case and a sustained case in the run.';
   return `B31.3 sustained check published: ${derived.input.checks.length} check(s), material ${derived.materialId}. `
-    + `Allowables entered by user. ${fittingText(derived.fittings) ? `${fittingText(derived.fittings)}. ` : ''}NOT ENGINEER-REVIEWED.${note}${skipped}`;
+    + `Allowables entered by user. ${fittingText(derived.fittings) ? `${fittingText(derived.fittings)}. ` : ''}NOT ENGINEER-REVIEWED.${exp}${skipped}`;
 }
 
 /** "B31J SIFs at N reducer end(s) and M tee end(s) (LFEA_PRACTICAL_B31_FITTINGS); K fitting end(s) at unity". */

@@ -4,13 +4,16 @@ import { requireDeclaredValue } from '../shared-analysis-contract/declared-value
 import { requireFrameElement } from '../linear-fea-frame-element/index.js';
 import { requirePipeSectionResolution } from '../linear-fea-section/index.js';
 import { requireMaterialResolutionResult } from '../linear-fea-material/index.js';
-import { requireLocalAction, sectionMechanicalProperties, extractResultants, combineStressTerms } from './stress-terms.js';
+import {
+  requireLocalAction, sectionMechanicalProperties, extractResultants, combineStressTerms, combineRangeStressTermsEq17,
+} from './stress-terms.js';
 import { requireImplementedCategory, sustainedOrOccasionalAllowable, displacementRangeAllowable } from './categories.js';
 import {
   CODE_LIMITATION_KEYS,
   CODE_RESULT_KEYS,
   CODE_RESULT_SCHEMA,
   CODE_RESULT_STATUSES,
+  DISPLACEMENT_RANGE_EQ17_AXIAL_TORSION_RULE,
   DISPLACEMENT_STRESS_RANGE,
   EXPANSION_RANGE_ENVELOPE,
   FACTOR_KEYS,
@@ -118,7 +121,13 @@ export function compileCodeResult({
   }
 
   let acceptedSustainedSection = null;
-  if (category !== SUSTAINED) {
+  const reducerRule = REDUCER_FACTOR_RULE_IDS.includes(factorSet.sourceIdentity.ruleId);
+  const rangeCategory = category === DISPLACEMENT_STRESS_RANGE || category === EXPANSION_RANGE_ENVELOPE;
+  if (rangeCategory && reducerRule && sustainedSectionResolution !== null) {
+    // A reducer end in a range category is checked with the nominal section of
+    // the pipe that matches that end (MATCHING_PIPE_SECTION_MODULUS_BY_REDUCER_END).
+    acceptedSustainedSection = requirePipeSectionResolution(sustainedSectionResolution);
+  } else if (category !== SUSTAINED) {
     if (sustainedSectionResolution !== null) {
       fail(
         'sustainedSectionResolution must be null outside SUSTAINED; nominal-less-allowances properties are not authorised for this category.',
@@ -278,13 +287,16 @@ export function compileCodeResult({
     ? 0
     : (resultants.axialForce / mechanicalProperties.area) * indices.axial;
   const pressureValue = isRangeCategory ? 0 : pressureStressContribution.value;
-  const { stressTerms, calculatedStress } = combineStressTerms(
-    resultants,
-    mechanicalProperties,
-    indices,
-    pressureValue,
-    axialValue,
-  );
+  const { stressTerms, calculatedStress } = isRangeCategory
+    && profile.displacementRangeCombinationRuleId === DISPLACEMENT_RANGE_EQ17_AXIAL_TORSION_RULE
+    ? combineRangeStressTermsEq17(resultants, mechanicalProperties, indices)
+    : combineStressTerms(
+      resultants,
+      mechanicalProperties,
+      indices,
+      pressureValue,
+      axialValue,
+    );
 
   const factors = {
     axialIndex: indices.axial,

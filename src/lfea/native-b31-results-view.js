@@ -121,5 +121,8 @@ function b31BasisLabel(state) {
   if (!reviewer) return null;
   if (!reviewer.startsWith('NOT ENGINEER-REVIEWED')) return `Reviewed by ${reviewer}`;
   const source = state.authority?.editionDataset?.sourceIdentity?.sourceRevision ?? '';
-  return `Allowables entered by user (${source}); W = 1; unity stress factors on straight pipe; sustained wall less corrosion allowance; pressure term P·di²/(Do²−di²). NOT ENGINEER-REVIEWED.`;
+  const expansion = (state.authority?.checks ?? []).some((row) => row.category === 'DISPLACEMENT_STRESS_RANGE')
+    ? ' Expansion: operating minus sustained, SE = √((|Sa|+Sb)² + (2St)²) on the nominal section, allowable f(1.25Sc + 0.25Sh), f = 1.'
+    : '';
+  return `Allowables entered by user (${source}); W = 1; unity stress factors on straight pipe; sustained wall less corrosion allowance; pressure term P·di²/(Do²−di²).${expansion} NOT ENGINEER-REVIEWED.`;
 }

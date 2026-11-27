@@ -101,3 +101,29 @@ export function combineStressTerms(
   );
   return { stressTerms, calculatedStress: directTerm + combinedBendingTorsion };
 }
+
+/**
+ * ASME B31.3 (2016 and later) para. 319.4.4 Eq. (17), used by range
+ * categories under DISPLACEMENT_RANGE_EQ17_AXIAL_TORSION_RULE:
+ *
+ *   SE = sqrt((|Sa| + Sb)^2 + (2 St)^2)
+ *   Sa = ia |Fa| / Ap,  Sb = sqrt((ii Mi)^2 + (io Mo)^2) / Z,  St = it Mt / (2 Z)
+ *
+ * `torsional` is St (Mt over the polar modulus 2Z); `axial` is Sa. Pressure
+ * is excluded, as for every range category.
+ */
+export function combineRangeStressTermsEq17(resultants, mechanicalProperties, indices) {
+  const { area, sectionModulus, polarSectionModulus } = mechanicalProperties;
+  const stressTerms = {
+    pressure: 0,
+    axial: (Math.abs(resultants.axialForce) / area) * indices.axial,
+    torsional: (resultants.torsion / polarSectionModulus) * indices.torsional,
+    inPlaneBending: (resultants.inPlaneMoment / sectionModulus) * indices.inPlaneBending,
+    outOfPlaneBending: (resultants.outOfPlaneMoment / sectionModulus) * indices.outOfPlaneBending,
+  };
+  const bending = Math.sqrt(stressTerms.inPlaneBending ** 2 + stressTerms.outOfPlaneBending ** 2);
+  return {
+    stressTerms,
+    calculatedStress: Math.sqrt((stressTerms.axial + bending) ** 2 + (2 * stressTerms.torsional) ** 2),
+  };
+}

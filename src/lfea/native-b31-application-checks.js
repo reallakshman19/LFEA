@@ -24,6 +24,8 @@ export function validateLfeaNativeB31CheckParents(preFlight, input, codeStationA
       );
     }
     const sustained = check.sustainedSectionResolution;
+    // An expansion range uses the nominal (uncorroded) section: nothing to check.
+    if (sustained === null) continue;
     // A reducer end is checked with the size at that end: allowed only for a
     // REDUCER element under a reducer-rule factor set, and only for the size
     // of a pipe the element joins at that end.

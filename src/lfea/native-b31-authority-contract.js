@@ -7,6 +7,11 @@ import { requirePipeSectionResolution } from '../core/linear-fea-section/index.j
 import { semanticHash } from '../core/shared-piping-model/canonical-json.js';
 import { deepFreeze } from '../core/shared-piping-model/immutable.js';
 import { requireLinearPipingInputXmlPreFlight } from '../workspace/linear-piping-inputxml-prefea.js';
+import {
+  LFEA_NATIVE_B31_EXPANSION_CATEGORY as EXPANSION_CATEGORY,
+  LFEA_NATIVE_B31_OPERATING_CASE_ROLES as OPERATING_PHYSICAL_CASE_ROLES,
+  canonicalLfeaNativeB31ExpansionCheck,
+} from './native-b31-expansion-check.js';
 
 export const LFEA_NATIVE_B31_AUTHORITY_SCHEMA = 'lfea-native-b31-authority/v1';
 export const LFEA_NATIVE_B31_CURRENTNESS = Object.freeze({ NONE: 'NONE', CURRENT: 'CURRENT', STALE: 'STALE' });
@@ -23,7 +28,7 @@ const CHECK_KEYS = Object.freeze([
   'pressureStressContribution', 'coldTemperature', 'sustainedStress',
   'occasionalCategoryId',
 ]);
-const NATIVE_IMPLEMENTED_CATEGORY = 'SUSTAINED';
+const SUSTAINED_CATEGORY = 'SUSTAINED';
 const SUSTAINED_PHYSICAL_CASE_ROLES = Object.freeze(['WEIGHT_BASE', 'WEIGHT_PRESSURE']);
 
 export function requireLfeaNativeB31AuthorityInput(preFlightRecord, input) {
@@ -97,16 +102,17 @@ function canonicalCheck(value, index) {
   const field = `b31AuthorityInput.checks[${index}]`;
   exactKeys(value, CHECK_KEYS, field);
   const category = requiredText(value.category, `${field}.category`);
-  if (category !== NATIVE_IMPLEMENTED_CATEGORY) {
+  if (category !== SUSTAINED_CATEGORY && category !== EXPANSION_CATEGORY) {
     throw b31Error(
       'LFEA_NATIVE_B31_CATEGORY_UNSUPPORTED',
-      `${field}.category must be SUSTAINED in the first native straight-pipe publication boundary.`,
+      `${field}.category must be SUSTAINED or EXPANSION_RANGE_ENVELOPE in the native publication boundary.`,
     );
   }
   const end = requiredText(value.end, `${field}.end`);
   if (!['I', 'J'].includes(end)) {
     throw b31Error('LFEA_NATIVE_B31_END_INVALID', `${field}.end must be I or J.`);
   }
+  if (category === EXPANSION_CATEGORY) return canonicalLfeaNativeB31ExpansionCheck(value, field, end);
   const actionSource = canonicalSingleCase(value.actionSource, `${field}.actionSource`);
   const evaluationCaseId = requiredText(value.evaluationCaseId, `${field}.evaluationCaseId`);
   const combinationId = requiredText(value.combinationId, `${field}.combinationId`);
@@ -181,7 +187,22 @@ function canonicalPressureContribution(value, field) {
 function requireCaseCustody(preFlight, checks) {
   const caseById = new Map(preFlight.preparation.physicalPreparation.physicalCases
     .map((row) => [row.caseId, row]));
+  const role = (check, caseId, roles, what) => {
+    const physicalCase = caseById.get(caseId);
+    if (!physicalCase) {
+      throw b31Error('LFEA_NATIVE_B31_CASE_MISSING', `B31 check ${check.checkId} references unavailable physical case ${caseId}.`);
+    }
+    if (!roles.includes(physicalCase.caseRole)) {
+      throw b31Error('LFEA_NATIVE_B31_RANGE_CASE_ROLE_INVALID',
+        `B31 expansion check ${check.checkId} needs a ${what} case; ${caseId} is ${physicalCase.caseRole}.`);
+    }
+  };
   for (const check of checks) {
+    if (check.category === EXPANSION_CATEGORY) {
+      role(check, check.actionSource.fromCaseId, SUSTAINED_PHYSICAL_CASE_ROLES, 'sustained');
+      role(check, check.actionSource.toCaseId, OPERATING_PHYSICAL_CASE_ROLES, 'operating');
+      continue;
+    }
     const physicalCase = caseById.get(check.actionSource.caseId);
     if (!physicalCase) {
       throw b31Error(

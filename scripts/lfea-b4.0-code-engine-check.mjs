@@ -184,6 +184,36 @@ test('B40-T05', 'DISPLACEMENT_STRESS_RANGE combines declared cold/hot allowables
   assert.equal(result.category, 'DISPLACEMENT_STRESS_RANGE');
 });
 
+test('B40-T05E', 'Under the Eq. (17) axial/torsion rule, DISPLACEMENT_STRESS_RANGE is sqrt((|Sa| + Sb)^2 + (2 St)^2), same allowable', () => {
+  const action = { ...n1.local, fx: 12_000, mx: 3_000 };
+  const args = {
+    category: 'DISPLACEMENT_STRESS_RANGE',
+    codePointId: 'CP-RED-001-N1-EXP',
+    combinationId: 'EXP-T2-T1',
+    localAction: action,
+    pressureStressContribution: null,
+    coldTemperature: { value: COLD_TEMPERATURE, source: 'FIXTURE-EDITION-DATASET-NOT-ASME' },
+    occasionalCategoryId: null,
+  };
+  const legacy = compileCodeResult(base(args));
+  const result = compileCodeResult(base({
+    ...args,
+    codeProfile: codeProfile({ displacementRangeCombinationRuleId: 'DISPLACEMENT_RANGE_COLD_HOT_CYCLE_REDUCTION_EQ17_AXIAL_TORSION_V1' }),
+  }));
+  const outer = section.dimensions.outerDiameter / 2;
+  const z = element.section.secondMomentY / outer;
+  const zp = element.section.polarMoment / outer;
+  const sifs = stressFactorSet().displacementSifs;
+  const sa = (Math.abs(action.fx) / element.section.area) * sifs.axial.value;
+  const sb = Math.hypot(sifs.inPlaneBending.value * action.my / z, sifs.outOfPlaneBending.value * action.mz / z);
+  const st = sifs.torsional.value * action.mx / zp;
+  assertClose(result.calculatedStress, Math.hypot(sa + sb, 2 * st), 1e-9, 'Eq. (17) range stress');
+  assertClose(result.stressTerms.axial, sa, 1e-9, 'Eq. (17) Sa term');
+  assert.equal(result.stressTerms.pressure, 0);
+  assert.equal(result.allowableStress, legacy.allowableStress, 'the allowable is unchanged by the rule');
+  assert.equal(legacy.stressTerms.axial, 0, 'the first rule still excludes Sa');
+});
+
 test('B40-T06', 'A non-null pressureStressContribution is refused for DISPLACEMENT_STRESS_RANGE', () => {
   expectCode(() => compileCodeResult(base({
     category: 'DISPLACEMENT_STRESS_RANGE',
