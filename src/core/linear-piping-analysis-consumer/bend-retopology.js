@@ -4,6 +4,7 @@ import {
   BendRetopologyError,
   compareAscii,
   failBendRetopology,
+  isCornerIntersectionTangentBasis,
   requireBendRetopologyChordCount,
   requireBendRetopologyGeometry,
   requireBendRetopologyLengthErrorLimit,
@@ -68,7 +69,7 @@ export function retopologiseDeclaredBends(geometry, profile) {
       chordCount,
       lengthErrorLimit,
     };
-    if (tangentBasis === 'ACCDB_CORNER_INTERSECTION_V1') {
+    if (isCornerIntersectionTangentBasis(tangentBasis)) {
       definitions.push(buildAccdbBendDefinition(shared));
     } else if (tangentBasis === 'INPUTXML_TANGENT_TO_TANGENT_V1') {
       definitions.push(buildInputXmlBendDefinition(shared));
@@ -168,7 +169,7 @@ function appendSourceRepresentation(input) {
   const changedBody = String(start.id) !== String(input.source.startNodeId)
     || String(end.id) !== String(input.source.endNodeId) || bend !== null;
   const bodyLength = distanceBetween(start, end);
-  const bodyAllowed = bend === null || bend.tangentBasis === 'ACCDB_CORNER_INTERSECTION_V1';
+  const bodyAllowed = bend === null || isCornerIntersectionTangentBasis(bend.tangentBasis);
   const bodyExists = bodyAllowed && bodyLength > absoluteGeometryTolerance(start, end);
   let evidenceOwned = false;
 

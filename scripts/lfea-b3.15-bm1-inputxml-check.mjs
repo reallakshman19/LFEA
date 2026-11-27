@@ -34,7 +34,9 @@ const mutations = sourceGeometry.diagnostics.filter((row) => row.code === 'INPUT
 assert.ok(mutations.some((row) => row.data.sourceTypeCode === '17' && row.data.typeCode === '14'));
 assert.ok(mutations.some((row) => row.data.sourceTypeCode === '7' && row.data.typeCode === '9'));
 assert.ok(sourceGeometry.diagnostics.some((row) => row.code === 'BEND_ANGLE_AUTOMATIC_SENTINEL_NORMALIZED'));
-assert.equal(sourceGeometry.diagnostics.filter((row) => row.code === 'BEND_INTERNAL_STATION_GEOMETRY_NOT_SUPPORTED').length, 2);
+// BM1's two bends carry CAESAR station nodes; their arcs now resolve from the corner.
+assert.equal(sourceGeometry.diagnostics.filter((row) => row.code === 'BEND_INTERNAL_STATION_GEOMETRY_NOT_SUPPORTED').length, 0);
+assert.equal(sourceGeometry.diagnostics.filter((row) => row.code === 'BEND_CORNER_ARC_GEOMETRY_RESOLVED').length, 2);
 for (const segment of sourceGeometry.segments.slice(1)) {
   assert.ok(segment.meta.analysis.elasticModulus > 0);
   assert.ok(segment.meta.analysis.poissonRatio > 0);

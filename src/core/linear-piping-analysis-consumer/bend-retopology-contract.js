@@ -7,6 +7,19 @@ export const BEND_RETOPOLOGY_TYPES = Object.freeze(['BEND', 'ELBOW']);
  * classification says nothing about whether the element curves.
  */
 export const ARC_BEARING_COMPONENT_TYPES = Object.freeze(['TEE']);
+/**
+ * Tangent bases where the bend element's TO node is the corner (the straight
+ * legs' intersection) and the arc is derived from it with the declared radius.
+ * CAESAR writes bends this way in ACCDB and, for bends with internal station
+ * nodes, in InputXML too.
+ */
+export const CORNER_INTERSECTION_TANGENT_BASES = Object.freeze([
+  'ACCDB_CORNER_INTERSECTION_V1',
+  'INPUTXML_CORNER_INTERSECTION_V1',
+]);
+export function isCornerIntersectionTangentBasis(value) {
+  return CORNER_INTERSECTION_TANGENT_BASES.includes(String(value ?? ''));
+}
 
 export class BendRetopologyError extends Error {
   constructor(message, code, data = null) {

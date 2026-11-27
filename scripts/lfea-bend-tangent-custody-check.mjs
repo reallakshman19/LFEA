@@ -82,6 +82,26 @@ assert.equal(internalStationBend.meta.bendTangentEnd, undefined);
 assert.equal(internalStationBend.meta.bendTangentBasis, undefined);
 assert.ok(internalStationGeometry.diagnostics.some((row) => row.code === 'BEND_INTERNAL_STATION_GEOMETRY_NOT_SUPPORTED'));
 
+// CAESAR's own shape for an internal-station bend: FROM->TO runs along the
+// incoming leg to the corner, and the next element leaves the corner. The arc
+// is derived from the corner and RADIUS, as ACCDB does.
+const cornerXml = `
+<PIPINGMODEL JOBNAME="S1_TANGENT_CORNER">
+  <PIPINGELEMENT FROM_NODE="10" TO_NODE="20" DELTA_X="1" DELTA_Y="0" DELTA_Z="0" />
+  <PIPINGELEMENT FROM_NODE="20" TO_NODE="30" DELTA_X="1" DELTA_Y="0" DELTA_Z="0">
+    <BEND RADIUS="0.5" NODE1="29" />
+  </PIPINGELEMENT>
+  <PIPINGELEMENT FROM_NODE="30" TO_NODE="40" DELTA_X="0" DELTA_Y="2" DELTA_Z="0" />
+</PIPINGMODEL>`;
+const cornerGeometry = inputXmlToCanonicalGeometry(cornerXml, { unit: 'm', source: 's1-bend-tangent-custody-corner' });
+const cornerBend = cornerGeometry.segments.find((segment) => segment.type === 'BEND');
+assertTangentRadiusInvariant(cornerBend, 'INPUTXML_CORNER_INTERSECTION_V1');
+const cornerNode = cornerGeometry.nodes.find((node) => node.id === cornerBend.endNodeId);
+assert.ok(Math.abs(distance(cornerBend.meta.bendTangentStart, cornerNode) - 0.5) < 1e-12, 'tangent start sits R tan(45) back from the corner');
+assert.ok(Math.abs(distance(cornerBend.meta.bendTangentEnd, cornerNode) - 0.5) < 1e-12, 'tangent end sits R tan(45) along the outgoing leg');
+assert.ok(Math.abs(cornerBend.meta.bendTangentEnd.y - cornerNode.y - 0.5) < 1e-12, 'tangent end lies on the outgoing leg');
+assert.ok(cornerGeometry.diagnostics.some((row) => row.code === 'BEND_CORNER_ARC_GEOMETRY_RESOLVED'));
+
 const accdbSource = fs.readFileSync('src/core/geometry/adapters/accdb-to-canonical-geometry.js', 'utf8');
 assert.match(accdbSource, /bendTangentBasis = 'ACCDB_CORNER_INTERSECTION_V1'/u);
 assert.doesNotMatch(accdbSource, /bendTangentStart\s*=\s*\{\s*x:\s*tangentStart\[0\]/u,

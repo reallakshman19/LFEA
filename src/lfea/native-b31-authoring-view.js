@@ -27,7 +27,7 @@ export function mountLfeaNativeB31AuthoringView(root, { onStage, onAuthorize, on
     lastB31State = b31State;
     const section = doc.createElement('section');
     section.className = 'lfea-b31-authoring';
-    section.append(heading(doc, 'B31.3 SUSTAINED code check'));
+    section.append(heading(doc, 'B31.3 code check: sustained and expansion'));
     if (statusMessage) section.append(statusBanner(doc, statusMessage, statusIsError));
     section.append(quickRunControls(doc));
     const advanced = doc.createElement('details');
@@ -50,7 +50,8 @@ export function mountLfeaNativeB31AuthoringView(root, { onStage, onAuthorize, on
     wrap.className = 'lfea-b31-quick-run';
     wrap.dataset.role = 'lfea-b31-quick-run';
     wrap.append(paragraph(document_,
-      'Enter the allowable stresses for the pipe material and run. Every straight-pipe element end in the weight cases is checked, using unity stress factors and W = 1. '
+      'Enter the allowable stresses for the pipe material and run. Every straight-pipe, reducer and tee element end is checked for sustained stress (W = 1) in the weight cases, '
+      + 'and for expansion stress range (operating minus sustained) when the run has both. Fittings use B31J or Table D300 factors; plain pipe uses unity factors. Bends are not checked yet. '
       + 'LFEA does not supply ASME allowables (they are licensed), and CAESAR models usually leave them unset. Results are labelled "allowables entered by user" and NOT ENGINEER-REVIEWED. '
       + 'After each Run the check repeats with the same values.'));
     const field = (role, label, value, onInput) => {

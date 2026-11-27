@@ -1,4 +1,5 @@
 import { InputXmlLinearStructuralPreparationError } from './inputxml-linear-structural-profile.js';
+import { isCornerIntersectionTangentBasis } from './bend-retopology-contract.js';
 
 export function projectInputXmlAnalyticalGeometry(prepared) {
   const bindingBySegment = new Map(prepared.segmentBindings
@@ -7,7 +8,7 @@ export function projectInputXmlAnalyticalGeometry(prepared) {
     const binding = bindingBySegment.get(String(segment.id)) ?? null;
     if (binding?.limitationCode !== 'GENERIC_APPROX_BEND_STRAIGHT_CHORD') return segment;
     const tangentBasis = String(segment.meta?.bendTangentBasis ?? '');
-    if (tangentBasis === 'ACCDB_CORNER_INTERSECTION_V1'
+    if (isCornerIntersectionTangentBasis(tangentBasis)
       || tangentBasis === 'INPUTXML_TANGENT_TO_TANGENT_V1') {
       return segment;
     }
