@@ -17,6 +17,7 @@ import {
   lfeaBendFactorAuthorityForIntake,
   lfeaBranchFactorAuthorityForIntake,
 } from './lfea-bend-factor-authority-control.js';
+import { lfeaProximityOptionsForSourceUnit } from './lfea-geometry-allowance.js';
 import { requireLinearPipingInputXmlIntake } from './linear-piping-inputxml-intake.js';
 
 export const LINEAR_PIPING_INPUTXML_PREFLIGHT_SCHEMA = 'linear-piping-inputxml-native-preflight/v1';
@@ -52,6 +53,9 @@ export function prepareLinearPipingInputXmlPreFlight(value, options) {
     requestedCaseIds: intake.requestedCaseIds,
   }, {
     validateSourceRequest: requireNativeSourceOnlyAnalysisRequest,
+    // The LFEA geometry allowance, in the unit the diagnostics see. A caller's
+    // own proximityOptions (the ACCDB intake passes metres) replace it.
+    proximityOptions: lfeaProximityOptionsForSourceUnit(intake.unitAuthority.sourceUnit),
     ...(options.diagnosticsOptions ?? {}),
   });
   const bendFactorAuthority = options.bendFactorAuthority === undefined

@@ -26,3 +26,19 @@ export function lfeaProximityOptions(overrides = {}) {
     ...overrides,
   });
 }
+
+const METRES_PER_UNIT = Object.freeze({ m: 1, cm: 0.01, mm: 0.001, in: 0.0254, ft: 0.3048 });
+
+/**
+ * The same allowance for a path whose pre-FEA diagnostics see geometry in the
+ * source's own length unit. InputXML is diagnosed before unit normalization,
+ * in mm or in, so 25 mm has to be expressed in that unit; passing the metre
+ * value there made it 0.025 mm and blocked BM4's 1 mm backtracking elements,
+ * which the ACCDB path (already in metres) accepts. An unknown unit gets no
+ * allowance rather than a guessed one.
+ */
+export function lfeaProximityOptionsForSourceUnit(sourceUnit, overrides = {}) {
+  const metresPerUnit = METRES_PER_UNIT[String(sourceUnit ?? '').trim().toLowerCase()];
+  if (metresPerUnit === undefined) return Object.freeze({ ...overrides });
+  return lfeaProximityOptions({ smallDiscrepancyAllowance: LFEA_GEOMETRY_ALLOWANCE_M / metresPerUnit, ...overrides });
+}
