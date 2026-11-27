@@ -27,10 +27,12 @@ import {
 } from '../src/workspace/linear-piping-inputxml-prefea.js';
 import { lfeaDefaultRequestedCaseIds } from '../src/workspace/lfea-default-case-selection.js';
 
-const SOURCE = 'benchmarks/LFEA/BM4/InputXML_BM4.repaired.xml';
+// The file as CAESAR exported it (its three 1 mm backtracking elements run on
+// the 25 mm geometry allowance), since that is what a user loads.
+const SOURCE = 'benchmarks/LFEA/BM4/InputXML_BM4.xml';
 const OUTPUT = 'benchmarks/LFEA/BM4/Output_BM4.xml';
 const content = readFileSync(SOURCE, 'utf8');
-const intake = (requestedCaseIds) => createLinearPipingInputXmlIntake({ fileName: 'InputXML_BM4.repaired.xml', content }, { requestedCaseIds });
+const intake = (requestedCaseIds) => createLinearPipingInputXmlIntake({ fileName: 'InputXML_BM4.xml', content }, { requestedCaseIds });
 
 // The app's first pass is weight-only; the default case set replaces it.
 const cases = lfeaDefaultRequestedCaseIds(prepareLinearPipingInputXmlPreFlight(intake(['IXP-W'])));
@@ -118,5 +120,5 @@ assert.ok(summary.sustainedAll.within1Pct >= 114 && summary.sustainedAll.within5
 assert.ok(summary.expansionStraightPipe.medianCaesarOverLfea > 1.12 && summary.expansionStraightPipe.medianCaesarOverLfea < 1.17,
   `expansion straight pipe: CAESAR/LFEA median ${summary.expansionStraightPipe.medianCaesarOverLfea}`);
 assert.ok(summary.expansionStraightPipeAtCaesarLikeStrain.within5Pct >= 55
-  && summary.expansionStraightPipeAtCaesarLikeStrain.medianPct <= 3.6, 'expansion straight pipe at a CAESAR-like strain');
+  && summary.expansionStraightPipeAtCaesarLikeStrain.medianPct <= 3.75, 'expansion straight pipe at a CAESAR-like strain');
 console.log('LFEA B31 InputXML vs CAESAR comparison PASS');

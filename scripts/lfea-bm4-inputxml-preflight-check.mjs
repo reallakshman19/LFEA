@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createLinearPipingInputXmlIntake } from '../src/workspace/linear-piping-inputxml-intake.js';
 import { prepareLinearPipingInputXmlPreFlight } from '../src/workspace/linear-piping-inputxml-prefea.js';
+import { findInputXmlBacktrackingElements } from '../src/core/geometry/adapters/inputxml-collinear-backtrack-repair.js';
 import { BM4_REPAIRED_PATH, BM4_SOURCE_PATH } from './lfea-bm4-cii-output-comparison.mjs';
 
 function preFlightOf(path) {
@@ -54,19 +55,32 @@ for (let set = 1; set <= 7; set += 1) {
 assert.equal(repaired.status, 'WARN');
 assert.equal(repaired.solveAuthorized, false);
 
-// The as-received model must STILL block, on the collinear overlap only. The
-// detector was not relaxed to make BM4 pass -- the source model was repaired,
-// reproducibly, under a declared bound. If this ever stops blocking, either
-// the detector drifted or the wrong file is being read.
+// The as-received model (2026-11-27). Its three 1 mm elements walk back along
+// the run (a sign slip in the source), so the detector still finds all seven
+// collinear overlaps. They are now accepted as ADVISORY within the declared
+// 25 mm LFEA geometry allowance, the same allowance the ACCDB path already
+// applied to BM4_L's copy of these elements; before, InputXML was diagnosed in
+// mm with the allowance's metre value, i.e. 0.025 mm. CAESAR solved the model
+// as written, and so does LFEA: the source is not edited.
 const asReceived = preFlightOf(BM4_SOURCE_PATH);
-assert.equal(asReceived.status, 'BLOCK', 'the as-received BM4 must still BLOCK');
-const asReceivedBlocks = blockCodes(asReceived);
-assert.equal(asReceivedBlocks.get('TOPOLOGY_COLLINEAR_SEGMENT_OVERLAP'), 7);
-assert.deepEqual(
-  [...asReceivedBlocks.keys()].sort(),
-  ['REQUIRED_CAPABILITY_BLOCKED', 'TOPOLOGY_COLLINEAR_SEGMENT_OVERLAP'],
-  'the as-received BM4 must block ONLY on the real collinear overlap and what derives from it',
+assert.equal(asReceived.status, 'WARN', 'the as-received BM4 runs on the declared allowance');
+assert.equal(blockCodes(asReceived).size, 0);
+const advisoryOverlaps = asReceived.preparation.findings.filter((finding) =>
+  finding.code === 'TOPOLOGY_COLLINEAR_SEGMENT_OVERLAP' && finding.disposition === 'ADVISORY');
+assert.equal(advisoryOverlaps.length, 7, 'all seven overlaps are still detected and named');
+assert.ok(advisoryOverlaps.every((finding) => /accepted within the declared 25 allowance/u.test(finding.message)));
+
+// Past the allowance it still blocks: make the first backtracking element 30 mm.
+const sourceText = readFileSync(BM4_SOURCE_PATH, 'utf8');
+const [first] = findInputXmlBacktrackingElements(sourceText);
+const slot = first.element.deltas.DELTA_X;
+const widened = `${sourceText.slice(0, slot.start)}30.000000${sourceText.slice(slot.end)}`;
+const widenedPreFlight = prepareLinearPipingInputXmlPreFlight(
+  createLinearPipingInputXmlIntake({ fileName: 'BM4-30mm-backtrack.xml', content: widened }, {}),
 );
+assert.equal(widenedPreFlight.status, 'BLOCK', 'a 30 mm backtrack is outside the allowance and blocks');
+assert.ok(blockCodes(widenedPreFlight).get('TOPOLOGY_COLLINEAR_SEGMENT_OVERLAP') > 0);
+const widenedBlocks = blockCodes(widenedPreFlight);
 
 const conditionalCount = (repaired.preparation.findings ?? [])
   .filter((finding) => finding.disposition === 'CONDITIONAL').length;
@@ -75,7 +89,8 @@ console.log(JSON.stringify({
   check: 'lfea-bm4-inputxml-preflight',
   status: 'PASS',
   asReceivedStatus: asReceived.status,
-  asReceivedBlockFindings: [...asReceivedBlocks.entries()].map(([code, count]) => `${count} ${code}`),
+  asReceivedAdvisoryOverlaps: advisoryOverlaps.length,
+  widened30mmBlockFindings: [...widenedBlocks.entries()].map(([code, count]) => `${count} ${code}`),
   repairedStatus: repaired.status,
   repairedBlockFindings: 0,
   repairedConditionalFindings: conditionalCount,
