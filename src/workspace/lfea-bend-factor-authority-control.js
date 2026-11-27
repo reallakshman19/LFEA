@@ -63,10 +63,12 @@ export function setLfeaBendFactorAuthoritySelection(selection, doc) {
  * stopping. The sealed authority carries a distinct sourceId so every
  * downstream record shows the basis was ASSUMED, not chosen, and the UI
  * labels it. Choosing a basis in the control replaces it.
+ * Smooth-90° is on by default because CAESAR applies it on the BM4_L
+ * benchmark (see docs/PRACTICAL_ANALYSIS_POLICY.md); NOT ENGINEER-REVIEWED.
  */
 export const LFEA_DEFAULT_COMPONENT_FACTOR_BASIS = Object.freeze({
   editionProfileId: 'B31_3_2022_B31J_2017',
-  smooth90FlexibilityCorrection: false,
+  smooth90FlexibilityCorrection: true,
   sourceId: 'LFEA_DEFAULT_ASSUMED_BASIS',
 });
 

@@ -21,7 +21,7 @@ instead:
 
 | Gate (before) | Now | Label shown |
 |---|---|---|
-| `BRANCH_FACTOR_EDITION_AUTHORITY_UNRESOLVED`: welding tees refused without an explicitly chosen B31/B31J edition. Bends also fell back to straight chords. | Default basis: ASME B31.3 2022 + B31J 2017, no smooth-90° correction. The sealed authority uses `sourceId: LFEA_DEFAULT_ASSUMED_BASIS`, and the control on the Source tab changes it. | "ASSUMED (default): … Choose below to change." |
+| `BRANCH_FACTOR_EDITION_AUTHORITY_UNRESOLVED`: welding tees refused without an explicitly chosen B31/B31J edition. Bends also fell back to straight chords. | Default basis: ASME B31.3 2022 + B31J 2017, with the smooth-90° correction (CAESAR applies it on BM4_L). The sealed authority uses `sourceId: LFEA_DEFAULT_ASSUMED_BASIS`, and the control on the Source tab changes it. | "ASSUMED (default): … Choose below to change." |
 | Pre-flight `WARN` required a reviewer name and reason before Run | Sealed automatically through the same governed path. The approver is recorded as `NOT ENGINEER-REVIEWED (LFEA auto-accept)`; the reason lists the warning count. | Status line and basis line: "results are NOT ENGINEER-REVIEWED" |
 | Support loads: `GOVERNED_INTERFACE_SET_REQUIRED`, `EXPLICIT_UP_GLOBAL_REQUIRED`, `EXPLICIT_PARALLEL_TOLERANCE_REQUIRED` | Every Run derives one support per restrained node from the constraints the solve actually used (`src/lfea/derived-support-authority.js`). Up is the opposite of solve gravity (+Y), the axes are global X/Y/Z, and the parallel tolerance is 1e-6. It is staged, accepted as `NOT ENGINEER-REVIEWED (LFEA derived supports)` and published through the same governed chain, with `sourceId: LFEA_DERIVED_FROM_MODEL_RESTRAINTS`. If derivation fails, Results are unaffected. | Results, support panel, "Support basis": "DERIVED from the model restraints used by the solve … NOT ENGINEER-REVIEWED." |
 | B31 code check: `GOVERNED_CODE_PROFILE_REQUIRED`, `GOVERNED_EDITION_DATASET_REQUIRED` (pasted sealed JSON) | The Code tab takes two numbers, Sc and Sh in MPa, and **Run B31.3 code check** builds everything else (`src/lfea/practical-b31-check.js`). That means one SUSTAINED check per straight-pipe element end in each run weight case, unity stress factors on straight pipe, W = 1, Sc at 70 °F and Sh at the material's design temperature. It is staged, accepted as `NOT ENGINEER-REVIEWED (LFEA user allowables)` and published through the governed chain. Later Runs repeat it with the same values. | Results, B31 panel, "Code check basis": "Allowables entered by user (Sc=…;Sh=…) … NOT ENGINEER-REVIEWED." |
@@ -270,19 +270,20 @@ L14 = L5 − L6, at 128 W+P ends, 109 of them with CAESAR at 1 MPa or more.
 - This comparison prepares BM4_L as the parity harness does: CAESAR's
   reconstructed thermal strain (0.00121097 for 21 → 120 °C) and B31J bends
   with the smooth-90° correction. **With the app's own defaults** (α 1.17e-5
-  from 20 °C, so 0.00117, and no smooth-90° correction), straight-pipe
-  expansion stress is a median 7.5% below CAESAR and 24 of 77 ends are within
-  5%. The thermal strain explains 3.4% of that; the smooth-90° correction
-  explains the rest. The L2/L6/L5 parity figures above also use the
-  CAESAR-matched preparation.
+  from 20 °C, so 0.00117; smooth-90° on since 2026-11-27), straight-pipe
+  expansion stress is a median 3.4% below CAESAR and 63 of 77 ends are within
+  5%. Before smooth-90° was the default it was 7.5% and 24 of 77. The 3.4%
+  left is the thermal strain; the default coefficient will come from the
+  CAESAR material database the owner is providing. The L2/L6/L5 parity
+  figures above also use the CAESAR-matched preparation.
 
 Known B31 limits, all stated in the status line:
 
 - Each check set covers one material, the one with the most elements.
 - Expansion at weldolet run ends uses the Table D300 SIF and is about 37% low
   against CAESAR (see above).
-- The app's default thermal strain and bend basis put BM4_L operating and
-  expansion results 5–8% below CAESAR (see above).
+- The app's default thermal strain puts BM4_L operating and expansion
+  results about 3.4% below CAESAR (see above).
 - Bends are not checked yet; bend-arc elements stay outside the native
   boundary. Straight pipe, reducer and tee elements are checked.
 - Weldolet run ends use the Table D300 default above, not B31J, and weldolet
