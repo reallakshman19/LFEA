@@ -1,4 +1,5 @@
 import { readAccdbNamedTables } from '../core/fea-benchmarks/caesar-accdb-reader-core.js';
+import { LFEA_ACCDB_MODEL_TABLES } from './lfea-accdb-source.js';
 import { applyAccdbFieldOverrides } from '../core/linear-piping-analysis-consumer/accdb-field-overrides.js';
 import { authorizeLinearPipingInputXmlPreFlight } from './linear-piping-inputxml-prefea.js';
 import { revealLfeaBendFactorAuthorityControl } from './lfea-bend-factor-authority-control.js';
@@ -25,11 +26,7 @@ import {
 export const LFEA_PIPELINE_ACCDB_INPUT_PANEL_SCHEMA = 'lfea-pipeline-accdb-input-panel/v1';
 
 /** The full ACCDB model table set (11 tables) -- matches caesar-accdb-package.js's MODEL_TABLES. */
-export const LFEA_PIPELINE_ACCDB_MODEL_TABLES = Object.freeze([
-  'INPUT_BASIC_ELEMENT_DATA', 'INPUT_BENDS', 'INPUT_CONTROL', 'INPUT_FORCMNT',
-  'INPUT_NODAL_COORDINATES', 'INPUT_OFFSETS', 'INPUT_REDUCERS', 'INPUT_RESTRAINTS',
-  'INPUT_RIGIDS', 'INPUT_SIFTEES', 'INPUT_UNITS',
-]);
+export const LFEA_PIPELINE_ACCDB_MODEL_TABLES = LFEA_ACCDB_MODEL_TABLES;
 
 /**
  * Mount the ACCDB (CAESAR II database) source panel into the LFEA pipeline
