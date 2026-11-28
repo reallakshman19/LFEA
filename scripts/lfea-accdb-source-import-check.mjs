@@ -106,7 +106,9 @@ console.log(JSON.stringify(summary));
 assert.ok(summary.sustained.all.within1Pct >= 122 && summary.sustained.all.within5Pct === 128, 'sustained vs CAESAR CASE 6');
 assert.ok(summary.expansion.straightPipe.within1Pct >= 45 && summary.expansion.straightPipe.within5Pct >= 67
   && summary.expansion.straightPipe.medianPct <= 0.35, 'expansion straight pipe vs CASE 14');
-assert.ok(summary.expansion.all.within5Pct >= 86 && summary.expansion.all.medianPct <= 1.1, 'expansion, all compared ends vs CASE 14');
+// Weldolet run ends on the CAESAR-fitted default (2026-11-28): 86 -> 94 within 5%, median 1.1% -> 0.87%.
+assert.ok(summary.expansion.all.within1Pct >= 55 && summary.expansion.all.within5Pct >= 94 && summary.expansion.all.medianPct <= 0.9,
+  'expansion, all compared ends vs CASE 14');
 
 // Operating case IXP-WPT against CAESAR CASE 5 (OPE) W+T1+P1, friction-free:
 // node translations (mm) and support loads (CAESAR's are on the hardware, so

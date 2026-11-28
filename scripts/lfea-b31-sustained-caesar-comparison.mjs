@@ -137,10 +137,14 @@ const bm4 = compare('BM4', runtimeFor(inputXmlPreFlight('benchmarks/LFEA/BM4/Inp
 // Re-measured 2026-11-26 with weldolet run ends at the B31.3 Table D300
 // welded-on fitting SIF (labelled LFEA default): within 1% 58 -> 62, within
 // 5% 107 -> 109, worst 29.7% unchanged.
+// Re-measured 2026-11-28 with weldolet run ends on the CAESAR-fitted default
+// (index sqrt(i), torsion included; exact against BM4_L below): within 1%
+// 70 -> 69, within 5% 113. The crossing row is 21800-21850 I (1.10% ->
+// 1.22% high): the factor is CAESAR's, the moment carries BM4's friction.
 assert.equal(bm4.checks, 126);
 assert.deepEqual(bm4.unmapped, ['20150-20160 I', '20150-20160 J']);
 assert.ok(bm4.slpWithin0p1Pct >= 122, 'BM4 pressure term equals CAESAR SLP except at the 4 unrecorded reducer ends');
-assert.ok(bm4.within1Pct >= 62 && bm4.within5Pct >= 109 && bm4.maxPct <= 29.7, 'BM4 sustained stress tolerance');
+assert.ok(bm4.within1Pct >= 69 && bm4.within5Pct >= 113 && bm4.maxPct <= 29.7, 'BM4 sustained stress tolerance');
 
 if (existsSync(BM4L_ACCDB)) {
   const MDBReaderModule = await import('mdb-reader');
@@ -194,10 +198,10 @@ if (existsSync(BM4L_ACCDB)) {
     const larger = Math.max(sustained.inPlaneBending.value, sustained.outOfPlaneBending.value);
     const ratio = larger / sifAt(elementId, end);
     if (fitting.kind === 'WELDOLET') {
-      // CAESAR's B31J weldolet run SIFs (1.518, 1.527) vs Table D300's
-      // 0.9 / h^(2/3): 1.2-2.4% lower here. Unity was 34-35% lower.
+      // CAESAR's B31J weldolet run indices (1.518, 1.527) via the CAESAR-fitted
+      // default: exact. Table D300 was 1.2-2.4% lower, unity 34-35% lower.
       weldoletEnds += 1;
-      assert.ok(ratio > 0.97 && ratio < 1, `${key} weldolet SIF ${larger} vs CAESAR ${sifAt(elementId, end)}`);
+      assert.ok(Math.abs(ratio - 1) < 1e-5, `${key} weldolet index ${larger} vs CAESAR ${sifAt(elementId, end)}`);
     } else if (fitting.kind === 'WELDING_TEE') {
       teeRunEnds += 1;
       assert.ok(Math.abs(ratio - 1) < 0.005, `${key} tee index ${larger} vs CAESAR ${sifAt(elementId, end)}`);

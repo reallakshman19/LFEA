@@ -130,17 +130,16 @@ assert.ok(rows.every((row) => Math.abs(row.allowable - row.caesarAllowable) < 0.
 assert.ok(rows.filter((row) => row.caesar < 1).every((row) => Math.abs(row.lfea - row.caesar) < 0.1),
   'ends CAESAR puts under 1 MPa are within 0.1 MPa');
 assert.equal(compared.length, 109);
-assert.ok(summary.within1Pct >= 53 && summary.within5Pct >= 86 && summary.medianPct <= 1.1, 'BM4_L expansion stress tolerance');
+// Re-measured 2026-11-28 with weldolet run ends on the CAESAR-fitted default
+// (LFEA_DEFAULT_WELDOLET_CAESAR_BACKCALC): within 1% 53 -> 55, within 5%
+// 86 -> 94, median 1.1% -> 0.87%.
+assert.ok(summary.within1Pct >= 55 && summary.within5Pct >= 94 && summary.medianPct <= 0.9, 'BM4_L expansion stress tolerance');
 assert.ok(byKind.STRAIGHT_PIPE.within5Pct >= 67 && byKind.STRAIGHT_PIPE.medianPct <= 0.34, 'straight pipe');
 assert.equal(byKind.WELDING_TEE.within5Pct, byKind.WELDING_TEE.ends, 'welding-tee ends within 5%');
 assert.ok(byKind.TEE.within5Pct >= 11, 'tee-element ends (the two-leg tee at 20700 stays at unity)');
 assert.ok(byKind.REDUCER.within5Pct >= 4 && byKind.REDUCER.maxPct <= 7.1, 'reducers (labelled r2/L2 defaults)');
-// Known and stated: weldolet run ends use the Table D300 SIF (about 1.5), and
-// CAESAR's B31J value is about 2.3 (torsion 2.9), so LFEA's expansion stress
-// there is 35-40% LOW. This pins the gap so a change to it is deliberate.
-for (const row of compared.filter((entry) => entry.kind === 'WELDOLET')) {
-  const ratio = row.lfea / row.caesar;
-  assert.ok(ratio > 0.6 && ratio < 0.66, `${row.key} weldolet expansion ratio ${ratio.toFixed(3)}`);
-}
+// Weldolet run ends: CAESAR's own SIFs (2.31-2.33, torsion 2.93-2.97) via
+// the fitted default. With Table D300 (about 1.5) they were 35-40% low.
 assert.equal(byKind.WELDOLET.ends, 8);
+assert.ok(byKind.WELDOLET.within5Pct === 8 && byKind.WELDOLET.maxPct <= 2.7 && byKind.WELDOLET.medianPct <= 2.0, 'weldolet run ends');
 console.log('LFEA B31 expansion vs CAESAR comparison PASS');

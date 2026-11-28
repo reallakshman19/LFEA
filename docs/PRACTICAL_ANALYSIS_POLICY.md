@@ -27,8 +27,8 @@ instead:
 | B31 code check: `GOVERNED_CODE_PROFILE_REQUIRED`, `GOVERNED_EDITION_DATASET_REQUIRED` (pasted sealed JSON) | The Code tab takes two numbers, Sc and Sh in MPa, and **Run B31.3 code check** builds everything else (`src/lfea/practical-b31-check.js`). That means one SUSTAINED check per straight-pipe element end in each run weight case, unity stress factors on straight pipe, W = 1, Sc at 70 °F and Sh at the material's design temperature. It is staged, accepted as `NOT ENGINEER-REVIEWED (LFEA user allowables)` and published through the governed chain. Later Runs repeat it with the same values. | Results, B31 panel, "Code check basis": "Allowables entered by user (Sc=…;Sh=…) … NOT ENGINEER-REVIEWED." |
 | One-way supports (CAESAR "+Y" etc.) solved as two-way, so a support could pull the pipe (`GENERIC_APPROX_UNILATERAL_LINEARIZED`) | On by default: active-set iteration per load case (`src/lfea/unilateral-active-set.js`, `sourceId: LFEA_UNILATERAL_ACTIVE_SET_ITERATION`, reviewer `NOT ENGINEER-REVIEWED (LFEA unilateral active set)`). Solve; release every rigid one-way support whose reaction opposes its only direction; re-solve; re-engage any whose pipe moves back into it; stop when the set is stable, at most 20 solves per case. The record (per case: status, solve count, lifted-off supports, history) is sealed into the raw execution batch hash. A lifted-off support reports a reaction of exactly zero, so derived supports show it as zero. It never blocks: if a case cycles, hits the cap, or a release cannot be solved (for example a mechanism), the last solved state is published and the status says so. One-way springs stay linear and are counted. | Results, "One-way and gapped support basis": "One-way supports solved by active-set iteration (LFEA_UNILATERAL_ACTIVE_SET_ITERATION): … lifted off (nodes) … NOT ENGINEER-REVIEWED". The support basis lists the lifted-off supports. |
 | Gapped supports (CAESAR `GAP` > 0 on a guide or limit stop) treated as closed (`GENERIC_APPROX_GAP_CLOSED`) | On by default, in the same active-set iteration and record. A gap is a contact with a distance g: one side for a one-way gapped support, both sides for a two-way guide or limit. The first solve sees every gap open. An open gap closes when the pipe moves past g, and the solver then holds the pipe at exactly g (a constraint offset, `SOLVER_CONSTRAINT_OFFSET_INVALID` if malformed). A closed gap opens again when its stop pulls. Open gaps report zero. A gap whose length unit cannot be resolved stays closed and is counted. | Same "One-way and gapped support basis" line: "… gaps N closed (node DOF ±g mm) / M open …". |
-| B31 check refused anything but exact straight pipe, so reducers and tees went unchecked | Reducer and tee elements are B31 targets too; bend arcs still are not (`src/lfea/practical-b31-fittings.js`, `sourceId: LFEA_PRACTICAL_B31_FITTINGS`, B31.3 2022 + B31J 2017 factors). **Reducer** (a CAESAR reducer record): both ends get the B31J Table 1-1 reducer SIF. The `DIAMETER2` end is checked with that size (the matching-pipe rule), and that is the only case where an end section may differ from the element's OD. CAESAR's `ALPHA`, `R2` and `L2` are used where given. Where they are 0, labelled defaults stand in: cone half-angle from the element geometry, r2 = 0.1·D2, L2 = 0.1·L, body wall = T1. **Welding tee** (CAESAR SIF type 3, three legs): B31J run or branch SIF, where the run is the two most nearly opposite legs. In-plane and out-of-plane follow the element's local axes; if neither axis is normal to the tee plane, the larger factor is used both ways. Tee quality is `UNVERIFIED`, so no 1.26 reduction. **Weldolet** (CAESAR SIF type 5) run ends: B31.3 Table D300 welded-on fitting SIF, i = 0.9 / h^(2/3), h = 3.3 T / r2, in and out of plane and as the sustained index; torsion and axial 1 (`LFEA_WELDOLET_DEFAULT`, NOT ENGINEER-REVIEWED: LFEA has no B31J weldolet equations). Branch ends stay at 1. Other fittings stay at i = 1 and are counted. Never blocks. | Code check status line: "B31J SIFs at N reducer end(s) and M welding-tee end(s) (LFEA_PRACTICAL_B31_FITTINGS); B31.3 Table D300 SIFs at W weldolet run end(s), LFEA default, no B31J weldolet equations; K fitting end(s) not covered, unity factors". |
-| B31 check had no expansion (displacement stress range) category | When the run has an operating case (`IXP-WPT`, else `IXP-WT`) and a sustained case (`IXP-WP`, else `IXP-W`), every sustained end also gets a `DISPLACEMENT_STRESS_RANGE` check on the operating minus sustained actions (CAESAR's EXP = OPE − SUS). Stress is B31.3 (2016+) Eq. (17), SE = √((\|Sa\| + Sb)² + (2St)²) with Sa = ia\|Fa\|/A, on the nominal section (a reducer end at that end's size), with the fitting's displacement SIFs. Allowable is Eq. (1a), f (1.25 Sc + 0.25 Sh), with f = 1 (`NOT ENGINEER-REVIEWED (LFEA default: f = 1, 7000 cycles or fewer)`). The engine rule is `DISPLACEMENT_RANGE_COLD_HOT_CYCLE_REDUCTION_EQ17_AXIAL_TORSION_V1`; profiles on the original rule keep the B31.3-2006 form. | Code check status line: "B31.3 expansion check: N check(s), IXP-WPT minus IXP-WP, allowable f (1.25 Sc + 0.25 Sh), f = 1 (LFEA default)", plus a weldolet warning when weldolets are present. |
+| B31 check refused anything but exact straight pipe, so reducers and tees went unchecked | Reducer and tee elements are B31 targets too; bend arcs still are not (`src/lfea/practical-b31-fittings.js`, `sourceId: LFEA_PRACTICAL_B31_FITTINGS`, B31.3 2022 + B31J 2017 factors). **Reducer** (a CAESAR reducer record): both ends get the B31J Table 1-1 reducer SIF. The `DIAMETER2` end is checked with that size (the matching-pipe rule), and that is the only case where an end section may differ from the element's OD. CAESAR's `ALPHA`, `R2` and `L2` are used where given. Where they are 0, labelled defaults stand in: cone half-angle from the element geometry, r2 = 0.1·D2, L2 = 0.1·L, body wall = T1. **Welding tee** (CAESAR SIF type 3, three legs): B31J run or branch SIF, where the run is the two most nearly opposite legs. In-plane and out-of-plane follow the element's local axes; if neither axis is normal to the tee plane, the larger factor is used both ways. Tee quality is `UNVERIFIED`, so no 1.26 reduction. **Weldolet** (CAESAR SIF type 5) run ends: SIFs back-calculated from CAESAR's BM4_L output (`src/lfea/lfea-weldolet-default.js`, `LFEA_DEFAULT_WELDOLET_CAESAR_BACKCALC`, NOT ENGINEER-REVIEWED: LFEA has no B31J weldolet equations). Expansion uses i = (R/T)^0.43 in and out of plane and axial, and i_t = 1.2 (R/T)^0.46. The sustained index is min(0.75 i, √i), with axial 1. These reproduce CAESAR to 1e-6 (until 2026-11-28 the Table D300 welded-on fitting SIF was used; see "Weldolet run ends" below). Branch ends stay at 1. Other fittings stay at i = 1 and are counted. Never blocks. | Code check status line: "B31J SIFs at N reducer end(s) and M welding-tee end(s) (LFEA_PRACTICAL_B31_FITTINGS); CAESAR-fitted SIFs at W weldolet run end(s), LFEA default (LFEA_DEFAULT_WELDOLET_CAESAR_BACKCALC), no B31J weldolet equations; K fitting end(s) not covered, unity factors". |
+| B31 check had no expansion (displacement stress range) category | When the run has an operating case (`IXP-WPT`, else `IXP-WT`) and a sustained case (`IXP-WP`, else `IXP-W`), every sustained end also gets a `DISPLACEMENT_STRESS_RANGE` check on the operating minus sustained actions (CAESAR's EXP = OPE − SUS). Stress is B31.3 (2016+) Eq. (17), SE = √((\|Sa\| + Sb)² + (2St)²) with Sa = ia\|Fa\|/A, on the nominal section (a reducer end at that end's size), with the fitting's displacement SIFs. Allowable is Eq. (1a), f (1.25 Sc + 0.25 Sh), with f = 1 (`NOT ENGINEER-REVIEWED (LFEA default: f = 1, 7000 cycles or fewer)`). The engine rule is `DISPLACEMENT_RANGE_COLD_HOT_CYCLE_REDUCTION_EQ17_AXIAL_TORSION_V1`; profiles on the original rule keep the B31.3-2006 form. | Code check status line: "B31.3 expansion check: N check(s), IXP-WPT minus IXP-WP, allowable f (1.25 Sc + 0.25 Sh), f = 1 (LFEA default)" (the weldolet under-prediction warning was dropped on 2026-11-28, once weldolet SIFs came from CAESAR). |
 | InputXML bends with CAESAR station nodes (`NODE1`/`NODE2`) refused an arc (`BEND_INTERNAL_STATION_GEOMETRY_NOT_SUPPORTED`) and ran as straight chords (`GENERIC_APPROX_BEND_STRAIGHT_CHORD`). Every bend in BM4 (11) and BM1 (2) has station nodes. | Resolved from the corner, CAESAR's own convention: FROM→TO runs along the incoming leg to the corner, and the next element leaves along the outgoing leg; the tangent points sit R·tan(θ/2) back on each leg (`src/core/geometry/adapters/inputxml-bend-corner.js`, tangent basis `INPUTXML_CORNER_INTERSECTION_V1`). It is the same arithmetic as ACCDB's `ACCDB_CORNER_INTERSECTION_V1`, and the bend then follows the same retopology. A bend whose corner is not a simple two-span corner, or whose radius does not fit, stays a chord with the diagnostic. | Pre-flight diagnostic `BEND_CORNER_ARC_GEOMETRY_RESOLVED` per bend; the chord limitation disappears from the retained list. |
 | Requested cases defaulted to weight only, so no expansion check ran until the user applied a selection on the Model tab | When no selection has been applied, the Source workflow requests weight, the sustained case (`WEIGHT_PRESSURE`) and one operating case (`WEIGHT_PRESSURE_TEMPERATURE`, else `WEIGHT_TEMPERATURE`) that the model has (`src/workspace/lfea-default-case-selection.js`). If that set would block a model the weight-only pass did not, weight only is kept. Applying a selection replaces it. | Source facts: "Requested cases: IXP-W, IXP-WP, IXP-WPT (LFEA default: weight, sustained and operating cases; change on the Model tab)". |
 | The Source tab took InputXML only; a CAESAR ACCDB could be analysed only by the scripts | The Source tab imports `.accdb`/`.mdb` too (`src/workspace/lfea-accdb-source.js`). The eleven INPUT_* tables are read in the page (nothing is uploaded), with a SHA-256 over the exact bytes, and pre-flight runs through the same governed chain as InputXML (`linear-piping-accdb-intake.js`), so every default above applies. A file without the CAESAR model tables is refused and the previous source stays. BM4_L through the Source workflow on app defaults (`scripts/lfea-accdb-source-import-check.mjs`): SUS 122/128 ends within 1% of CAESAR CASE 6, all 128 within 5%; EXP straight pipe a median 0.34% from CASE 14, 67/77 within 5% (3.38% low and 63/77 before the thermal default below). | Source facts: "Format: CAESAR II ACCDB (model tables read in the browser)". |
@@ -181,10 +181,12 @@ Comparison with CAESAR SUS (W+P), checked by
 | BM4, one-way active set | 116 | 112 | 56 | 102 | 29.7% |
 | BM4, one-way + gaps, no friction | 116 | 112 | 57 | 99 | 29.7% |
 | BM4, + reducer and tee elements checked | 126 of 128 | 122 | 58 | 107 | 29.7% |
-| BM4, + weldolet run ends (now) | 126 of 128 | 122 | **62** | **109** | 29.7% |
+| BM4, + weldolet run ends (Table D300) | 126 of 128 | 122 | 62 | 109 | 29.7% |
+| BM4, re-measured 2026-11-28 before the weldolet change (after the real-model fixes) | 126 of 128 | 122 | 70 | 113 | 29.7% |
+| BM4, weldolets on the CAESAR-fitted default (now; 21800-21850 I goes 1.10% → 1.22%, BM4 friction) | 126 of 128 | 122 | **69** | **113** | 29.7% |
 | BM4_L (ACCDB) vs CASE 6, friction-free, reducers and tees | 128 | 128 | 106 | 128 | 4.7% |
 | BM4_L, + weldolet run ends | 128 | 128 | 112 | 128 | 3.6% |
-| **BM4_L, + restraint code 3 read as two-way Y (now)** | **128** | **128** | **122** | **128** | **2.0%** |
+| **BM4_L, + restraint code 3 read as two-way Y (now; weldolet indices exact since 2026-11-28)** | **128** | **128** | **122** | **128** | **2.0%** |
 
 Reducer and tee elements (2026-11-26). The check now covers reducer and tee
 elements, not just straight pipe (`LFEA_PRACTICAL_B31_FITTINGS`, see the
@@ -220,6 +222,45 @@ branch end keeps unity.
 
 - BM4_L: within 1% goes from 106 to 112; worst from 4.7% to 3.6%.
 - BM4 InputXML: within 1% from 58 to 62, within 5% from 107 to 109.
+
+Weldolet run ends, back-calculated from CAESAR (2026-11-28). This replaces
+the Table D300 default above. `src/lfea/lfea-weldolet-default.js`,
+`sourceId: LFEA_DEFAULT_WELDOLET_CAESAR_BACKCALC`, labelled
+"NOT ENGINEER-REVIEWED (LFEA default: weldolet run SIFs fitted to CAESAR B31J
+output on BM4_L; LFEA has no B31J weldolet equations)".
+
+What CAESAR printed at BM4_L's 4 weldolets (8 run ends, branch not modelled),
+B31.3-2022 with B31J:
+
+| Run pipe | R/T | EXP i (in = out = axial) | EXP i_t | SUS I (in = out) | SUS I_t | SUS axial |
+|---|---|---|---|---|---|---|
+| 273 × 18.26 mm | 6.974 | 2.3052 | 2.9322 | 1.5183 | 1.7124 | 1 |
+| 168.3 × 10.97 mm | 7.169 | 2.3326 | 2.9696 | 1.5273 | 1.7232 | 1 |
+
+- The sustained indices are √ of the expansion SIFs to float precision, that
+  is min(0.75 i, √i). That is the same rule as B31J branch indices.
+- A power law c (R/T)^n through the two sizes lands on round numbers: c = 1.0000,
+  n = 0.4300 for bending and c = 1.2000, n = 0.4600 for torsion, within 4e-6.
+  LFEA stores i = (R/T)^0.43 and i_t = 1.2 (R/T)^0.46 (R mean radius,
+  T nominal wall), both at least 1. These reproduce CAESAR's values to 1e-6.
+- Expansion uses i in and out of plane and axial, and i_t in torsion.
+  Sustained and occasional use min(0.75 i, √i), axial 1.
+- Measured only at R/T 6.97–7.17 and only on unbranched runs. Outside that
+  range the end's note says "extrapolated". How CAESAR's run SIF depends on
+  branch size is not known from these models.
+- `scripts/lfea-weldolet-caesar-backcalc-check.mjs` re-reads CAESAR's SIFs
+  from the ACCDB, re-fits them, and requires every LFEA weldolet factor set on
+  BM4_L to equal CAESAR's.
+
+Results:
+- BM4_L expansion: weldolet ends go from 0 to 8 of 8 within 5% (median 1.9%,
+  worst 2.7%; was 37% low). All ends: within 5% 86 → 94, median 1.1% → 0.87%.
+- BM4_L sustained: weldolet indices are now exact (Table D300 was 1.2–2.4%
+  low). Totals unchanged at 122/128 within 1%.
+- BM4 InputXML expansion, all ends: within 5% 84 → 92, median 2.4% → 2.0%.
+- BM4 InputXML sustained: within 1% 70 → 69, within 5% 113. 21800-21850 I
+  goes from 1.10% to 1.22% high. The factor is CAESAR's; the moment differs
+  because of BM4's support friction.
 
 BM4_L Y supports are two-way (2026-11-26). LFEA read ACCDB restraint code 3
 as a one-way "+Y". That label came from the BM4 InputXML run, where those
@@ -302,18 +343,19 @@ L14 = L5 − L6, at 128 W+P ends, 109 of them with CAESAR at 1 MPa or more.
 
 | Ends (CAESAR ≥ 1 MPa) | Ends | Within 1% | Within 5% | Median | Worst |
 |---|---|---|---|---|---|
-| All | 109 | 53 | 86 | 1.1% | 39.5% |
+| All | 109 | 55 | 94 | 0.87% | 36.3% (two-leg tee at 20700, unity) |
 | Straight pipe | 77 | 45 | 67 | 0.34% | 16.7% (1.4 vs 1.7 MPa) |
 | Welding tees | 4 | 2 | 4 | 2.2% | 4.0% |
 | Tee elements | 12 | 6 | 11 | 1.5% | 36.3% (two-leg tee at 20700, unity) |
 | Reducers | 8 | 0 | 4 | 6.7% | 7.1% (labelled r2, L2 defaults) |
-| **Weldolets** | 8 | 0 | 0 | **36.7% low** | **39.5% low** |
+| **Weldolets (CAESAR-fitted default, 2026-11-28)** | 8 | 2 | **8** | **1.9%** | **2.7%** |
+| Weldolets, Table D300 (before) | 8 | 0 | 0 | 36.7% low | 39.5% low |
 
-- **Weldolets are under-predicted.** CAESAR's B31J weldolet run SIF for
-  expansion is 2.31–2.33 (torsion 2.93–2.97). LFEA uses the Table D300 value,
-  about 1.5. The sustained check matched only because CAESAR's B31J sustained
-  index there is min(0.75 i, √i) = √2.33 = 1.53, close to Table D300's 1.51.
-  The status line warns about this whenever weldolets are present.
+- **Weldolets now use CAESAR's own SIFs** (see "Weldolet run ends" above).
+  With the Table D300 value, about 1.5, expansion was 37% low there, because
+  CAESAR's run SIF for expansion is 2.31–2.33 (torsion 2.93–2.97). The
+  sustained check had matched only because CAESAR's sustained index is
+  min(0.75 i, √i) = √2.33 = 1.53, close to Table D300's 1.51.
 - This comparison prepares BM4_L as the parity harness does: CAESAR's
   reconstructed thermal strain (0.00121097 for 21 → 120 °C) and B31J bends
   with the smooth-90° correction. **The app's own defaults now give the same
@@ -326,15 +368,15 @@ L14 = L5 − L6, at 128 W+P ends, 109 of them with CAESAR at 1 MPa or more.
 Known B31 limits, all stated in the status line:
 
 - Each check set covers one material, the one with the most elements.
-- Expansion at weldolet run ends uses the Table D300 SIF and is about 37% low
-  against CAESAR (see above).
 - The app's default thermal strain is back-calculated from CAESAR output at
   82, 120 and 325 °C and exact there; between those points it is interpolated
   and outside them extrapolated, and materials other than A106 B and
   A334 Gr 6 keep the generic 1.17e-5 /K (see above).
 - Bends are not checked yet; bend-arc elements stay outside the native
   boundary. Straight pipe, reducer and tee elements are checked.
-- Weldolet run ends use the Table D300 default above, not B31J, and weldolet
+- Weldolet run ends use the CAESAR-fitted default, i = (R/T)^0.43 and
+  i_t = 1.2 (R/T)^0.46. It is measured only at R/T 6.97–7.17 on unbranched
+  runs; how CAESAR's run SIF depends on branch size is unknown. Weldolet
   branch ends keep i = 1.
 - Sweepolets, fabricated tees and other fittings the B31J factor calculator
   does not implement keep i = 1. The status line counts them.

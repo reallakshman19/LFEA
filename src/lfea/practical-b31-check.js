@@ -170,11 +170,8 @@ function statusLine(derived, expansion) {
   const skipped = derived.skippedMaterialCount
     ? ` ${derived.skippedCheckCount} check(s) on ${derived.skippedMaterialCount} other material(s) not run (one material per check set).`
     : '';
-  const weldoletWarning = derived.fittings.weldoletEnds
-    ? ' Weldolet run ends use the Table D300 SIF; CAESAR\'s B31J SIF was about 1.5 times higher on BM4_L, so expansion stress there may be under-predicted.'
-    : '';
   const exp = expansion.checks.length
-    ? ` B31.3 expansion check: ${expansion.checks.length} check(s), ${expansion.toCaseId} minus ${expansion.fromCaseId}, allowable f (1.25 Sc + 0.25 Sh), f = 1 (LFEA default).${weldoletWarning}`
+    ? ` B31.3 expansion check: ${expansion.checks.length} check(s), ${expansion.toCaseId} minus ${expansion.fromCaseId}, allowable f (1.25 Sc + 0.25 Sh), f = 1 (LFEA default).`
     : ' No expansion check: it needs an operating (temperature) case and a sustained case in the run.';
   return `B31.3 sustained check published: ${derived.input.checks.length} check(s), material ${derived.materialId}. `
     + `Allowables entered by user. ${fittingText(derived.fittings) ? `${fittingText(derived.fittings)}. ` : ''}NOT ENGINEER-REVIEWED.${exp}${skipped}`;
@@ -184,7 +181,7 @@ function statusLine(derived, expansion) {
 function fittingText(fittings) {
   if (!fittings.reducerEnds && !fittings.teeEnds && !fittings.weldoletEnds && !fittings.unityFittingEnds) return '';
   const weldolets = fittings.weldoletEnds
-    ? `; B31.3 Table D300 SIFs at ${fittings.weldoletEnds} weldolet run end(s), LFEA default, no B31J weldolet equations` : '';
+    ? `; CAESAR-fitted SIFs at ${fittings.weldoletEnds} weldolet run end(s), LFEA default (LFEA_DEFAULT_WELDOLET_CAESAR_BACKCALC), no B31J weldolet equations` : '';
   const unity = fittings.unityFittingEnds ? `; ${fittings.unityFittingEnds} fitting end(s) not covered, unity factors` : '';
   return `B31J SIFs at ${fittings.reducerEnds} reducer end(s) and ${fittings.teeEnds} welding-tee end(s) (${LFEA_PRACTICAL_FITTING_SOURCE})${weldolets}${unity}`;
 }

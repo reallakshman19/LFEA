@@ -51,7 +51,7 @@ export function mountLfeaNativeB31AuthoringView(root, { onStage, onAuthorize, on
     wrap.dataset.role = 'lfea-b31-quick-run';
     wrap.append(paragraph(document_,
       'Enter the allowable stresses for the pipe material and run. Every straight-pipe, reducer and tee element end is checked for sustained stress (W = 1) in the weight cases, '
-      + 'and for expansion stress range (operating minus sustained) when the run has both. Fittings use B31J or Table D300 factors; plain pipe uses unity factors. Bends are not checked yet. '
+      + 'and for expansion stress range (operating minus sustained) when the run has both. Fittings use B31J factors (weldolet runs: CAESAR-fitted LFEA default); plain pipe uses unity factors. Bends are not checked yet. '
       + 'LFEA does not supply ASME allowables (they are licensed), and CAESAR models usually leave them unset. Results are labelled "allowables entered by user" and NOT ENGINEER-REVIEWED. '
       + 'After each Run the check repeats with the same values.'));
     const field = (role, label, value, onInput) => {
