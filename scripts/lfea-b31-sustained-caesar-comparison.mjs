@@ -17,6 +17,7 @@ import { createLfeaNativeExecutionAuthority } from '../src/lfea/native-execution
 import { createLfeaNativeResultsAuthority } from '../src/lfea/native-results-authority.js';
 import { runLfeaPracticalB31Check } from '../src/lfea/practical-b31-check.js';
 import { lfeaB31EndFittings } from '../src/lfea/practical-b31-fittings.js';
+import { createCaesarEndKey } from './lfea-caesar-end-key.mjs';
 import { createLinearPipingInputXmlIntake } from '../src/workspace/linear-piping-inputxml-intake.js';
 import {
   authorizeLinearPipingInputXmlPreFlight,
@@ -78,13 +79,16 @@ function caesarXmlSustained(outPath, susLabel, nextLabel) {
 function compare(name, runtime, caesar) {
   runLfeaPracticalB31Check(runtime, { scMpa: 137.9, shMpa: 137.9 });
   const structural = runtime.preFlight.preparation.structuralPreparation;
+  const caesarEndKey = createCaesarEndKey(runtime.preFlight, new Set(caesar.keys()));
   const rows = runtime.b31.getState().application.results
     .filter((row) => row.codeResult.stressTerms.pressure > 0)
     .map((row) => {
-      const [, elementId, end] = row.checkId.match(/^B31-SUS-(.+)-([IJ])-IXP-WP$/u);
+      const [, elementId, lfeaEnd] = row.checkId.match(/^B31-SUS-(.+)-([IJ])-IXP-WP$/u);
       const binding = structural.segmentBindings.find((x) => x.elementId === elementId);
-      const key = `${binding.startNodeId}-${binding.endNodeId}`;
-      const reference = caesar.get(key);
+      const mapped = caesarEndKey(binding, lfeaEnd);
+      const key = mapped?.key ?? `${binding.startNodeId}-${binding.endNodeId}`;
+      const end = mapped?.end ?? lfeaEnd;
+      const reference = mapped ? caesar.get(key) : undefined;
       return {
         key, end, kind: binding.componentKind,
         lfea: row.codeResult.calculatedStress / 1e6, sp: row.codeResult.stressTerms.pressure / 1e6,
@@ -103,7 +107,11 @@ function compare(name, runtime, caesar) {
   const summary = {
     name, ...measure(mapped),
     unmapped: rows.filter((row) => !mapped.includes(row)).map((row) => `${row.key} ${row.end}`),
-    fittings: measure(mapped.filter((row) => row.kind !== 'STRAIGHT_PIPE')),
+    fittings: measure(mapped.filter((row) => row.kind !== 'STRAIGHT_PIPE' && row.kind !== 'BEND')),
+    // Bend leads and arc chords (checked since 2026-11-28), apart so the
+    // earlier tolerances keep measuring what they measured.
+    bends: measure(mapped.filter((row) => row.kind === 'BEND')),
+    others: measure(mapped.filter((row) => row.kind !== 'BEND')),
   };
   console.log(JSON.stringify(summary));
   return summary;
@@ -111,10 +119,19 @@ function compare(name, runtime, caesar) {
 
 const bm1 = compare('BM1', runtimeFor(inputXmlPreFlight('benchmarks/LFEA/BM1/BM1_InputXML.xml')),
   caesarXmlSustained('benchmarks/LFEA/BM1/BM1_CIIOutput.xml', 'CASE 4 (SUS)', 'CASE 5'));
-assert.equal(bm1.checks, 18);
-assert.deepEqual(bm1.unmapped, []);
-assert.equal(bm1.slpWithin0p1Pct, 18, 'BM1 pressure term equals CAESAR SLP everywhere');
-assert.ok(bm1.within1Pct >= 10 && bm1.within5Pct >= 16 && bm1.maxPct <= 15, 'BM1 sustained stress tolerance');
+// Bend ends between synthetic arc nodes have no CAESAR row.
+const synthetic = (key) => /(^|-)(IX-S|ACCDB\.|IXP\.)/u.test(key.split(' ')[0]);
+assert.equal(bm1.others.checks, 18);
+assert.ok(bm1.unmapped.every(synthetic), `BM1 unmapped ends are all at synthetic arc nodes: ${bm1.unmapped}`);
+assert.equal(bm1.slpWithin0p1Pct, bm1.checks, 'BM1 pressure term equals CAESAR SLP everywhere');
+assert.ok(bm1.others.within1Pct >= 10 && bm1.others.within5Pct >= 16 && bm1.others.maxPct <= 15, 'BM1 sustained stress tolerance');
+// BM1 bends (2026-11-28): 12 ends at CAESAR nodes, 5 within 5%, worst 79.3%
+// (48-49 I). BM1's CAESAR output is B31.3-2018, whose sustained index is
+// 0.75 i (1.99 / 1.66); LFEA's practical profile is B31.3-2022 with B31J,
+// index = i (2.66 / 2.21; CAESAR's EXP SIFs are exactly these). At 48 LFEA's
+// moment is also about 2.8 times CAESAR's, next to 40-45, BM1's worst
+// straight end.
+assert.ok(bm1.bends.checks === 12 && bm1.bends.within5Pct >= 5 && bm1.bends.maxPct <= 79.3, 'BM1 bends');
 
 const bm4 = compare('BM4', runtimeFor(inputXmlPreFlight('benchmarks/LFEA/BM4/InputXML_BM4.repaired.xml')),
   caesarXmlSustained('benchmarks/LFEA/BM4/Output_BM4.xml', 'CASE 17 (SUS)', 'CASE 19'));
@@ -141,10 +158,15 @@ const bm4 = compare('BM4', runtimeFor(inputXmlPreFlight('benchmarks/LFEA/BM4/Inp
 // (index sqrt(i), torsion included; exact against BM4_L below): within 1%
 // 70 -> 69, within 5% 113. The crossing row is 21800-21850 I (1.10% ->
 // 1.22% high): the factor is CAESAR's, the moment carries BM4's friction.
-assert.equal(bm4.checks, 126);
-assert.deepEqual(bm4.unmapped, ['20150-20160 I', '20150-20160 J']);
-assert.ok(bm4.slpWithin0p1Pct >= 122, 'BM4 pressure term equals CAESAR SLP except at the 4 unrecorded reducer ends');
-assert.ok(bm4.within1Pct >= 69 && bm4.within5Pct >= 113 && bm4.maxPct <= 29.7, 'BM4 sustained stress tolerance');
+assert.equal(bm4.others.checks, 126);
+assert.deepEqual(bm4.unmapped.filter((key) => !synthetic(key)), ['20150-20160 I', '20150-20160 J']);
+assert.ok(bm4.others.slpWithin0p1Pct >= 122, 'BM4 pressure term equals CAESAR SLP except at the 4 unrecorded reducer ends');
+assert.ok(bm4.others.within1Pct >= 69 && bm4.others.within5Pct >= 113 && bm4.others.maxPct <= 29.7, 'BM4 sustained stress tolerance');
+// BM4 bends (2026-11-28): 42 ends at CAESAR nodes, SIFs equal to CAESAR's
+// (B31.3-2022 output), 26 within 5%, worst 13.1%; CAESAR CASE 17 holds the
+// line by friction, which LFEA does not apply yet (BM4_L below is friction-free).
+assert.equal(bm4.bends.slpWithin0p1Pct, bm4.bends.checks);
+assert.ok(bm4.bends.checks === 42 && bm4.bends.within5Pct >= 26 && bm4.bends.maxPct <= 13.1, 'BM4 bends');
 
 if (existsSync(BM4L_ACCDB)) {
   const MDBReaderModule = await import('mdb-reader');
@@ -171,12 +193,19 @@ if (existsSync(BM4L_ACCDB)) {
   // ACCDB's own RESTRAINT_TYPES table) instead of +Y: CAESAR holds 20090 down
   // in CASE 6 where LFEA had lifted it off. Within 1% 112 -> 122 (fittings
   // 24 -> 30), worst 3.6% -> 2.0%.
-  assert.equal(bm4l.checks, 128);
-  assert.equal(bm4l.unmapped.length, 4, 'BM4_L: only the two split bend-lead tee elements lack a CAESAR row');
-  assert.equal(bm4l.slpWithin0p1Pct, 128, 'BM4_L pressure term equals CAESAR SLP everywhere');
-  assert.ok(bm4l.within1Pct >= 122 && bm4l.within5Pct === 128 && bm4l.maxPct <= 2.0, 'BM4_L sustained stress tolerance');
-  assert.equal(bm4l.fittings.checks, 32);
-  assert.equal(bm4l.fittings.within5Pct, 32, 'BM4_L: every reducer, tee and weldolet end within 5% of CAESAR');
+  // Re-measured 2026-11-28 with bends checked: the tee-kind bend chords
+  // (2 bends whose source element is a tee) join the fittings, 32 -> 38;
+  // all within 5%, 35 within 1%.
+  assert.equal(bm4l.others.checks, 134);
+  assert.deepEqual(bm4l.unmapped.filter((key) => !synthetic(key)), ['20150-20160 I', '20150-20160 J'],
+    'BM4_L: only the split tee element 20150-20160 lacks a CAESAR row, besides synthetic arc nodes');
+  assert.equal(bm4l.slpWithin0p1Pct, bm4l.checks, 'BM4_L pressure term equals CAESAR SLP everywhere');
+  assert.ok(bm4l.others.within1Pct >= 127 && bm4l.others.within5Pct === 134 && bm4l.others.maxPct <= 2.0, 'BM4_L sustained stress tolerance');
+  assert.equal(bm4l.fittings.checks, 38);
+  assert.equal(bm4l.fittings.within5Pct, 38, 'BM4_L: every reducer, tee and weldolet end within 5% of CAESAR');
+  // Bends (2026-11-28), friction-free CASE 6: 40 ends at CAESAR nodes, 39
+  // within 1%, worst 1.1%.
+  assert.ok(bm4l.bends.checks === 40 && bm4l.bends.within1Pct >= 39 && bm4l.bends.within5Pct === 40 && bm4l.bends.maxPct <= 1.1, 'BM4_L bends');
 
   // Factors against CAESAR's own SIFs. Welding-tee run ends reproduce CAESAR's
   // sustained indices; reducers use CAESAR's ALPHA where given and the
@@ -193,7 +222,8 @@ if (existsSync(BM4L_ACCDB)) {
   for (const [key, fitting] of found.fittings) {
     const [elementId, end] = key.split(':');
     const binding = structural.segmentBindings.find((row) => row.elementId === elementId);
-    if (!caesar.has(`${binding.startNodeId}-${binding.endNodeId}`)) continue;
+    // Bend factors are held to CAESAR's in scripts/lfea-bend-caesar-sif-check.mjs.
+    if (fitting.kind === 'BEND' || !caesar.has(`${binding.startNodeId}-${binding.endNodeId}`)) continue;
     const sustained = fitting.stressFactorSet.sustainedIndices;
     const larger = Math.max(sustained.inPlaneBending.value, sustained.outOfPlaneBending.value);
     const ratio = larger / sifAt(elementId, end);

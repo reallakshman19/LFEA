@@ -16,6 +16,7 @@ import { createLfeaNativeB31PublicationAuthority } from '../src/lfea/native-b31-
 import { createLfeaNativeExecutionAuthority } from '../src/lfea/native-execution-authority.js';
 import { createLfeaNativeResultsAuthority } from '../src/lfea/native-results-authority.js';
 import { runLfeaPracticalB31Check } from '../src/lfea/practical-b31-check.js';
+import { createCaesarEndKey } from './lfea-caesar-end-key.mjs';
 import { lfeaB31EndFittings } from '../src/lfea/practical-b31-fittings.js';
 import { createLinearPipingInputXmlIntake } from '../src/workspace/linear-piping-inputxml-intake.js';
 import {
@@ -59,7 +60,8 @@ const status = runLfeaPracticalB31Check({
   authorizeNativeB31Authority: (approval) => b31.authorize(preFlight, approval),
   publishNativeB31Application: () => b31.publish(preFlight, executionState, resultsState),
 }, { scMpa: 137.9, shMpa: 137.9 });
-assert.match(status, /B31\.3 expansion check: 128 check\(s\), IXP-WPT minus IXP-WP/u);
+const expansionChecks = Number(status.match(/B31\.3 expansion check: (\d+) check\(s\), IXP-WPT minus IXP-WP/u)?.[1]);
+assert.equal(expansionChecks, 282, 'BM4 expansion checks, bend leads and arc chords included (128 before 2026-11-28)');
 
 const xml = readFileSync(OUTPUT, 'utf8');
 const blocks = xml.split(/(?=<[^<>]*LOADCASE=")/u);
@@ -74,13 +76,16 @@ function caesarCodeStress(label) {
   return map;
 }
 const kinds = new Map([...lfeaB31EndFittings(preFlight).fittings].map(([key, row]) => [key, row.kind]));
+const endKeys = new Map();
 function rows(category, pattern, reference) {
   const out = [];
   for (const row of b31.getState().application.results.filter((entry) => entry.codeResult.category === category)) {
     const m = row.checkId.match(pattern);
     if (!m) continue;
     const binding = structural.segmentBindings.find((entry) => entry.elementId === m[1]);
-    const cii = reference.get(`${binding.startNodeId}-${binding.endNodeId}`)?.[m[2]];
+    if (!endKeys.has(reference)) endKeys.set(reference, createCaesarEndKey(preFlight, new Set(reference.keys())));
+    const mapped = endKeys.get(reference)(binding, m[2]);
+    const cii = mapped ? reference.get(mapped.key)?.[mapped.end] : undefined;
     if (cii === undefined || cii < 1) continue; // under 1 MPa a % says little
     out.push({ kind: kinds.get(`${m[1]}:${m[2]}`) ?? binding.componentKind, lfea: row.codeResult.calculatedStress / 1e6, cii });
   }
@@ -107,6 +112,10 @@ const summary = {
   sustainedAll: measure(sus),
   expansionStraightPipe: measure(straight(exp)),
   expansionAll: measure(exp),
+  sustainedBends: measure(sus.filter((row) => row.kind === 'BEND')),
+  expansionBends: measure(exp.filter((row) => row.kind === 'BEND')),
+  expansionNonBend: measure(exp.filter((row) => row.kind !== 'BEND')),
+  sustainedNonBend: measure(sus.filter((row) => row.kind !== 'BEND')),
 };
 console.log(JSON.stringify(summary));
 
@@ -122,5 +131,10 @@ assert.ok(summary.expansionStraightPipe.within1Pct >= 39 && summary.expansionStr
   && Math.abs(summary.expansionStraightPipe.medianCaesarOverLfea - 1) <= 0.005, 'expansion straight pipe vs CASE 21');
 // Re-measured 2026-11-28 with weldolet run ends on the CAESAR-fitted default:
 // all ends within 5% 84 -> 92, median 2.4% -> 2.0%.
-assert.ok(summary.expansionAll.within5Pct >= 92 && summary.expansionAll.medianPct <= 2.0, 'expansion, all compared ends vs CASE 21');
+assert.ok(summary.expansionNonBend.within5Pct >= 92 && summary.expansionNonBend.medianPct <= 2.0, 'expansion, all compared non-bend ends vs CASE 21');
+// Bends checked (2026-11-28), ends at CAESAR's own nodes: B31J SIFs with the
+// declared-pressure correction, equal to CAESAR's B31.3-2022 SIFs.
+assert.ok(summary.sustainedBends.ends === 42 && summary.sustainedBends.within1Pct >= 40 && summary.sustainedBends.within5Pct === 42, 'sustained bends vs CASE 19');
+assert.ok(summary.expansionBends.ends === 42 && summary.expansionBends.within5Pct >= 38 && summary.expansionBends.medianPct <= 1.1, 'expansion bends vs CASE 21');
+assert.ok(summary.expansionAll.within5Pct >= 130 && summary.expansionAll.medianPct <= 1.8, 'expansion, all compared ends');
 console.log('LFEA B31 InputXML vs CAESAR comparison PASS');

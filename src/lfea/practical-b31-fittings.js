@@ -2,6 +2,7 @@ import { semanticHash } from '../core/shared-piping-model/canonical-json.js';
 import { sealStressFactorSet } from '../core/linear-fea-b31-code-engine/index.js';
 import {
   FACTOR_CALCULATION_REQUEST_SCHEMA,
+  bendGeometry,
   calculateB31Factors,
   reducerGeometry,
   weldingTeeGeometry,
@@ -32,6 +33,13 @@ export { LFEA_WELDOLET_DEFAULT };
  *   expansion i in and out of plane and axial, i_t in torsion; sustained
  *   index min(0.75 i, sqrt(i)), axial 1. A weldolet branch end keeps unity.
  *
+ * - Bends (a lead straight plus arc chords, `isLfeaBendPart`): every chord
+ *   end (the tangent points included) gets the B31J bend SIF with the
+ *   declared-pressure correction; in-plane is bending in the bend plane. The
+ *   lead is plain pipe, as in CAESAR, unless it is at most 1% of the bend
+ *   radius long (CAESAR's near point on the FROM node). A tee or weldolet SIF at a node wins;
+ *   where the tee has no factors (two legs), the bend SIF stands.
+ *
  * Other fitting types (sweepolets, fabricated tees ...) keep unity factors
  * and are counted. Nothing here blocks.
  */
@@ -44,17 +52,23 @@ export const LFEA_REDUCER_DEFAULTS = Object.freeze({
   bodyMinimumWall: 'large-end wall T1',
 });
 export const LFEA_FITTING_TARGET_KINDS = Object.freeze(['TEE', 'REDUCER']);
+/** Lead length, as a fraction of the bend radius, at or below which the lead's start is on the bend. */
+export const LFEA_BEND_LEAD_ON_ARC = 0.01;
 const CAESAR_WELDING_TEE = 3;
 const CAESAR_WELDOLET = 5;
 const AXIS_ALIGNED = 0.999;
 const SAME_SIZE = 0.01;
 const MAPPING = Object.freeze({ inPlaneField: 'my', outOfPlaneField: 'mz' });
 
-/** A TEE or REDUCER element the sustained check may target: not a bend-arc chord. */
+/** A bend's straight lead or one of its arc chords (any component kind). */
+export function isLfeaBendPart(binding) {
+  return (binding.bendChordOf ?? null) !== null || binding.retopologyRole === 'BEND_INCOMING_STRAIGHT';
+}
+
+/** A TEE or REDUCER element, or a bend's lead or arc chord, the check may target. */
 export function isLfeaFittingTarget(binding) {
-  return LFEA_FITTING_TARGET_KINDS.includes(binding.componentKind)
-    && (binding.bendChordOf ?? null) === null
-    && String(binding.representabilityDisposition).startsWith('IMPLEMENTED_');
+  return String(binding.representabilityDisposition).startsWith('IMPLEMENTED_')
+    && (isLfeaBendPart(binding) || LFEA_FITTING_TARGET_KINDS.includes(binding.componentKind));
 }
 
 /**
@@ -82,6 +96,9 @@ export function lfeaB31EndFittings(preFlight) {
     return unit(binding.startNodeId === node ? minus(J, I) : minus(I, J));
   };
   const teeTypes = caesarSifTypes(records);
+  const bendSegments = new Map((preFlight.preparation.sourcePreparation?.normalizedGeometry?.segments ?? [])
+    .filter((row) => row.meta?.bendDeclaredRadius > 0).map((row) => [String(row.id), row]));
+  const bendSets = new Map();
   const fittings = new Map();
   const unsupported = new Map();
 
@@ -102,16 +119,105 @@ export function lfeaB31EndFittings(preFlight) {
       continue;
     }
     for (const [end, node] of [['I', binding.startNodeId], ['J', binding.endNodeId]]) {
-      if (!teeTypes.has(node)) continue;
-      const weldolet = teeTypes.get(node) === CAESAR_WELDOLET;
-      const tee = weldolet ? weldoletFactors(binding, end, node) : teeFactors(binding, end, node, teeTypes.get(node));
       const key = `${binding.elementId}:${end}`;
-      const kind = weldolet ? 'WELDOLET' : 'WELDING_TEE';
-      if (tee.factorSet) fittings.set(key, { kind, stressFactorSet: tee.factorSet, endSection: null, note: tee.note });
-      else unsupported.set(key, tee.note);
+      // A bend's arc: every chord end (the first chord's I end is the tangent
+      // point). The lead is plain pipe, as CAESAR has it, unless it vanishes.
+      const onArc = isLfeaBendPart(binding) && ((binding.bendChordOf ?? null) !== null || vanishingLead(binding));
+      if (teeTypes.has(node)) {
+        const weldolet = teeTypes.get(node) === CAESAR_WELDOLET;
+        const tee = weldolet ? weldoletFactors(binding, end, node) : teeFactors(binding, end, node, teeTypes.get(node));
+        const kind = weldolet ? 'WELDOLET' : 'WELDING_TEE';
+        if (tee.factorSet) {
+          fittings.set(key, { kind, stressFactorSet: tee.factorSet, endSection: null, note: tee.note });
+          continue;
+        }
+        if (!onArc) {
+          unsupported.set(key, tee.note);
+          continue;
+        }
+      }
+      if (!onArc) continue;
+      const bend = bendFactors(binding, end);
+      if (bend.factorSet) fittings.set(key, { kind: 'BEND', stressFactorSet: bend.factorSet, endSection: null, note: bend.note });
+      else unsupported.set(key, bend.note);
     }
   }
   return Object.freeze({ fittings, unsupported });
+
+  /**
+   * B31J bend SIFs (Table 1-1 Sketch 1-1) with the declared-pressure
+   * correction, the same factors CAESAR prints for BM4_L's bends; sustained
+   * index = the SIF (B31J direct). In-plane is bending in the bend plane.
+   */
+  function bendFactors(binding, end) {
+    const sourceId = String(binding.bendChordOf ?? binding.sourceSegmentId);
+    if (!bendSets.has(sourceId)) bendSets.set(sourceId, bendFactorSet(sourceId, binding));
+    const { set, normal, note } = bendSets.get(sourceId);
+    if (!set) return { factorSet: null, note };
+    // Arc chords are solved inside the bend component, whose reference vector
+    // is the bend-plane normal (bend-component.js, BEND_PLANE_NORMAL_V1): local
+    // y is that normal, so in-plane is my. The structural model's own chord
+    // axes are not the solved ones. The lead is an ordinary frame element.
+    const axes = elements.get(binding.elementId).localAxes;
+    const chord = (binding.bendChordOf ?? null) !== null;
+    const mapping = chord || Math.abs(dot(axes.y, normal)) > AXIS_ALIGNED ? { inPlaneField: 'my', outOfPlaneField: 'mz' }
+      : Math.abs(dot(axes.z, normal)) > AXIS_ALIGNED ? { inPlaneField: 'mz', outOfPlaneField: 'my' } : null;
+    return {
+      factorSet: practicalFactorSet(binding.elementId, set, `BEND_${end}`, mapping),
+      note: `${note}${mapping ? '' : ' (bend plane off the local axes: larger factor both ways)'}`,
+    };
+  }
+
+  /** A lead shorter than LFEA_BEND_LEAD_ON_ARC of the bend radius: its start is the bend's near point (CAESAR's SIF there too). */
+  function vanishingLead(binding) {
+    const radius = bendSegments.get(String(binding.sourceSegmentId))?.meta?.bendDeclaredRadius;
+    const { I, J } = ends(binding);
+    return radius > 0 && norm(minus(J, I)) <= LFEA_BEND_LEAD_ON_ARC * radius;
+  }
+
+  function bendFactorSet(sourceId, binding) {
+    const segment = bendSegments.get(sourceId) ?? null;
+    const pipe = section(binding);
+    const meta = segment?.meta ?? {};
+    const centre = meta.bendArcCentre;
+    const label = `bend ${segment?.startNodeId ?? sourceId}-${segment?.endNodeId ?? ''}`;
+    if (!segment || !pipe || !centre || !meta.bendTangentStart || !meta.bendTangentEnd || !(meta.bendDeclaredRadius > 0)) {
+      return { set: null, note: `${label}: no usable bend geometry, unity factors` };
+    }
+    const toCentre = (point) => [point.x - centre.x, point.y - centre.y, point.z - centre.z];
+    const [start, finish] = [toCentre(meta.bendTangentStart), toCentre(meta.bendTangentEnd)];
+    const angle = (Math.acos(Math.max(-1, Math.min(1, dot(unit(start), unit(finish))))) * 180) / Math.PI;
+    const modulus = meta.analysis?.elasticModulus;
+    const pressure = modulus > 0 && meta.analysis?.pressure > 0 ? meta.analysis.pressure : 0;
+    const result = calculateB31Factors({
+      schema: FACTOR_CALCULATION_REQUEST_SCHEMA,
+      calculationId: `${sourceId}.LFEA-BEND`,
+      componentId: sourceId,
+      editionProfileId: LFEA_PRACTICAL_FITTING_PROFILE,
+      componentType: 'BEND',
+      geometry: bendGeometry({
+        lengthUnit: 'm',
+        outerDiameter: pipe.outerDiameter,
+        wallThickness: pipe.wallThickness,
+        bendRadius: meta.bendDeclaredRadius,
+        pressure,
+        elasticModulus: modulus > 0 ? modulus : 1,
+        bendAngleDegrees: angle,
+        smooth90FlexibilityCorrection: false,
+        sourceEvidence: { sourceId: `${LFEA_PRACTICAL_FITTING_SOURCE}:BEND:${sourceId}`, sourceRevision: '01' },
+      }),
+      momentDirectionMapping: { ...MAPPING },
+      semanticHash: '',
+    });
+    if (result.status !== 'QUALIFIED') return { set: null, note: `${label}: outside the B31J bend range, unity factors` };
+    const set = result.stressFactorSets[0];
+    return {
+      set,
+      normal: unit(cross(start, finish)),
+      note: `${label} (R ${mm(meta.bendDeclaredRadius)} mm, ${angle.toFixed(1)} deg, i ${set.displacementSifs.inPlaneBending.value.toFixed(3)}`
+        + ` / ${set.displacementSifs.outOfPlaneBending.value.toFixed(3)}${pressure > 0 ? ', pressure-corrected' : ''})`,
+    };
+  }
 
   function reducerFactors(binding) {
     const label = `reducer ${binding.startNodeId}-${binding.endNodeId}`;
@@ -279,6 +385,7 @@ export function lfeaFittingSummary(found) {
     reducerEnds: count('REDUCER'),
     teeEnds: count('WELDING_TEE'),
     weldoletEnds: count('WELDOLET'),
+    bendEnds: count('BEND'),
     unityFittingEnds: found.unsupported.size,
     semanticHash: semanticHash([...found.fittings].map(([key, row]) => [key, row.stressFactorSet.semanticHash])),
   });

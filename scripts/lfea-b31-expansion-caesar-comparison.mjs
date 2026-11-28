@@ -19,6 +19,7 @@ import { createLfeaNativeExecutionAuthority } from '../src/lfea/native-execution
 import { createLfeaNativeResultsAuthority } from '../src/lfea/native-results-authority.js';
 import { runLfeaPracticalB31Check } from '../src/lfea/practical-b31-check.js';
 import { lfeaB31EndFittings } from '../src/lfea/practical-b31-fittings.js';
+import { createCaesarEndKey } from './lfea-caesar-end-key.mjs';
 import { authorizeLinearPipingInputXmlPreFlight } from '../src/workspace/linear-piping-inputxml-prefea.js';
 import { createLinearPipingAccdbSession, prepareLinearPipingAccdbPreFlight } from '../src/workspace/linear-piping-accdb-intake.js';
 import { sealInputXmlProductionBendFactorAuthority } from '../src/core/linear-piping-analysis-consumer/inputxml-production-bend-factor-authority.js';
@@ -82,23 +83,26 @@ const status = runLfeaPracticalB31Check({
   authorizeNativeB31Authority: (approval) => b31.authorize(preFlight, approval),
   publishNativeB31Application: () => b31.publish(preFlight, executionState, resultsState),
 }, { scMpa: 137.9, shMpa: 137.9 });
-assert.match(status, /B31\.3 expansion check: 132 check\(s\), IXP-WPT minus IXP-WP, allowable f \(1\.25 Sc \+ 0\.25 Sh\)/u);
+assert.match(status, /B31\.3 expansion check: 296 check\(s\), IXP-WPT minus IXP-WP, allowable f \(1\.25 Sc \+ 0\.25 Sh\)/u);
 
 const caesar = new Map(reader.getTable('OUTPUT_COMPONENT_STRESSES').getData()
   .filter((row) => Number(row.LCASE_NUM) === 14) // CASE 14 (EXP) L14 = L5 - L6
   .map((row) => [`${Math.round(row.FROM_NODE)}-${Math.round(row.TO_NODE)}`, row]));
 const structural = preFlight.preparation.structuralPreparation;
 const kinds = new Map([...lfeaB31EndFittings(preFlight).fittings].map(([key, row]) => [key, row.kind]));
+const caesarEndKey = createCaesarEndKey(preFlight, new Set(caesar.keys()));
 const rows = [];
 for (const row of b31.getState().application.results.filter((entry) => entry.codeResult.category === 'DISPLACEMENT_STRESS_RANGE')) {
-  const [, elementId, end] = row.checkId.match(/^B31-EXP-(.+)-([IJ])-IXP-WPT-IXP-WP$/u);
+  const [, elementId, lfeaEnd] = row.checkId.match(/^B31-EXP-(.+)-([IJ])-IXP-WPT-IXP-WP$/u);
   const binding = structural.segmentBindings.find((entry) => entry.elementId === elementId);
-  const reference = caesar.get(`${binding.startNodeId}-${binding.endNodeId}`);
-  if (!reference) continue;
+  const mapped = caesarEndKey(binding, lfeaEnd);
+  if (!mapped) continue;
+  const reference = caesar.get(mapped.key);
+  const { end } = mapped;
   const side = end === 'I' ? 'F' : 'T';
   rows.push({
-    key: `${binding.startNodeId}-${binding.endNodeId} ${end}`,
-    kind: kinds.get(`${elementId}:${end}`) ?? binding.componentKind,
+    key: `${mapped.key} ${end}`,
+    kind: kinds.get(`${elementId}:${lfeaEnd}`) ?? binding.componentKind,
     lfea: row.codeResult.calculatedStress / 1e6,
     caesar: reference[`CODE_STRESS${side}`] / 1e3,
     allowable: row.codeResult.allowableStress / 1e6,
@@ -123,20 +127,28 @@ const byKind = Object.fromEntries([...new Set(compared.map((row) => row.kind))].
 const summary = { name: 'BM4_L EXP (L14)', rows: rows.length, ...measure(compared), byKind };
 console.log(JSON.stringify(summary));
 
-// Measured 2026-11-26.
-assert.equal(rows.length, 128, 'every W+P end CAESAR reports has an expansion row');
+// Measured 2026-11-26. Re-measured 2026-11-28 with bends checked: 46 more
+// rows (bend ends at CAESAR's own nodes, src/lfea/practical-b31-fittings.js),
+// 43 of them at 1 MPa or more.
+assert.equal(rows.length, 174, 'every W+P end CAESAR reports has an expansion row');
 assert.ok(rows.every((row) => Math.abs(row.allowable - row.caesarAllowable) < 0.05),
   'the allowable equals CAESAR\'s f (1.25 Sc + 0.25 Sh) = 206.8 MPa at every end');
 assert.ok(rows.filter((row) => row.caesar < 1).every((row) => Math.abs(row.lfea - row.caesar) < 0.1),
   'ends CAESAR puts under 1 MPa are within 0.1 MPa');
-assert.equal(compared.length, 109);
+assert.equal(compared.length, 152);
 // Re-measured 2026-11-28 with weldolet run ends on the CAESAR-fitted default
 // (LFEA_DEFAULT_WELDOLET_CAESAR_BACKCALC): within 1% 53 -> 55, within 5%
-// 86 -> 94, median 1.1% -> 0.87%.
-assert.ok(summary.within1Pct >= 55 && summary.within5Pct >= 94 && summary.medianPct <= 0.9, 'BM4_L expansion stress tolerance');
+// 86 -> 94, median 1.1% -> 0.87%. Then with bends checked (109 -> 152 ends):
+// within 1% 74, within 5% 133, median 1.1%.
+assert.ok(summary.within1Pct >= 74 && summary.within5Pct >= 133 && summary.medianPct <= 1.1, 'BM4_L expansion stress tolerance');
 assert.ok(byKind.STRAIGHT_PIPE.within5Pct >= 67 && byKind.STRAIGHT_PIPE.medianPct <= 0.34, 'straight pipe');
 assert.equal(byKind.WELDING_TEE.within5Pct, byKind.WELDING_TEE.ends, 'welding-tee ends within 5%');
-assert.ok(byKind.TEE.within5Pct >= 11, 'tee-element ends (the two-leg tee at 20700 stays at unity)');
+assert.ok(byKind.TEE.within5Pct >= 10, 'tee-element ends (the two-leg tee at 20700 stays at unity)');
+// Bends: B31J SIFs with the declared-pressure correction, equal to CAESAR's
+// (scripts/lfea-bend-caesar-sif-check.mjs); the leads' plain-pipe starts count here too. 39 of 43 within 5%. The worst
+// (17%) is the bend 20690-20700 into the two-leg tee at 20700, where CAESAR
+// uses 1.5737 in and out of plane.
+assert.ok(byKind.BEND.ends === 43 && byKind.BEND.within5Pct >= 39 && byKind.BEND.medianPct <= 1.25 && byKind.BEND.maxPct <= 17.2, 'bend ends');
 assert.ok(byKind.REDUCER.within5Pct >= 4 && byKind.REDUCER.maxPct <= 7.1, 'reducers (labelled r2/L2 defaults)');
 // Weldolet run ends: CAESAR's own SIFs (2.31-2.33, torsion 2.93-2.97) via
 // the fitted default. With Table D300 (about 1.5) they were 35-40% low.

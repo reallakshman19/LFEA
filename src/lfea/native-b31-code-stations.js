@@ -8,8 +8,8 @@ export const LFEA_NATIVE_B31_CODE_STATION_SCHEMA =
 
 /**
  * Build code-only station authority for exact straight-pipe spans, and for
- * reducer and tee elements (never bend arcs; practical analysis, checked with
- * B31J factors from practical-b31-fittings.js), each already represented by
+ * reducer and tee elements and bend leads and arc chords (practical analysis,
+ * checked with B31J factors from practical-b31-fittings.js), each already represented by
  * one governed B-3.1 frame element. This record owns no stiffness,
  * flexibility, SIF or code equation; it only binds physical code points to
  * exact existing element ends.

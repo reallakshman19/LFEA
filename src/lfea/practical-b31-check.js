@@ -179,11 +179,12 @@ function statusLine(derived, expansion) {
 
 /** "B31J SIFs at N reducer end(s) and M tee end(s) (LFEA_PRACTICAL_B31_FITTINGS); K fitting end(s) at unity". */
 function fittingText(fittings) {
-  if (!fittings.reducerEnds && !fittings.teeEnds && !fittings.weldoletEnds && !fittings.unityFittingEnds) return '';
+  if (!fittings.reducerEnds && !fittings.teeEnds && !fittings.weldoletEnds && !fittings.bendEnds && !fittings.unityFittingEnds) return '';
+  const bends = fittings.bendEnds ? `; B31J bend SIFs at ${fittings.bendEnds} bend end(s), pressure-corrected` : '';
   const weldolets = fittings.weldoletEnds
     ? `; CAESAR-fitted SIFs at ${fittings.weldoletEnds} weldolet run end(s), LFEA default (LFEA_DEFAULT_WELDOLET_CAESAR_BACKCALC), no B31J weldolet equations` : '';
   const unity = fittings.unityFittingEnds ? `; ${fittings.unityFittingEnds} fitting end(s) not covered, unity factors` : '';
-  return `B31J SIFs at ${fittings.reducerEnds} reducer end(s) and ${fittings.teeEnds} welding-tee end(s) (${LFEA_PRACTICAL_FITTING_SOURCE})${weldolets}${unity}`;
+  return `B31J SIFs at ${fittings.reducerEnds} reducer end(s) and ${fittings.teeEnds} welding-tee end(s) (${LFEA_PRACTICAL_FITTING_SOURCE})${bends}${weldolets}${unity}`;
 }
 
 /** After each Run: repeat the code check if the user has already entered Sc/Sh. */
