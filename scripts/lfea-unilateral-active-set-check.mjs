@@ -187,9 +187,12 @@ assert.equal(bm4Record.gapCandidateCount, 6, 'BM4 has six gapped supports');
 assert.ok(bm4Record.frictionNotAppliedCount > 0, 'BM4 friction coefficients are counted as not applied');
 const operatingGaps = bm4Record.cases.find((row) => row.caseId === 'IXP-WPT');
 // Four close since bends have real arcs (2026-11-27); 20030 closes at -25 mm, as in CAESAR.
-assert.deepEqual(operatingGaps.gaps.filter((row) => row.state !== 'OPEN').map((row) => row.sourceNodeId).sort(), ['20030', '20390', '21480', '21640']);
-assert.equal(operatingGaps.constraintOffsets.length, 4, 'each closed gap is sealed as a solver offset');
-assert.ok(label.includes('IXP-WPT: 4 lifted off') && label.includes('gaps 4 closed'), label);
+// Five since the thermal strain is back-calculated from CAESAR (2026-11-28):
+// 21480 closes in DZ as well as DX, as in CAESAR.
+assert.deepEqual(operatingGaps.gaps.filter((row) => row.state !== 'OPEN').map((row) => `${row.sourceNodeId}:${row.dof}`).sort(),
+  ['20030:UZ', '20390:UX', '21480:UX', '21480:UZ', '21640:UX']);
+assert.equal(operatingGaps.constraintOffsets.length, 5, 'each closed gap is sealed as a solver offset');
+assert.ok(label.includes('IXP-WPT: 4 lifted off') && label.includes('gaps 5 closed'), label);
 assert.ok(label.includes('friction coefficient(s) not applied'), label);
 console.log('LFEA-UNI-08 PASS BM4 gaps open and close, label names closed gaps and friction not applied');
 

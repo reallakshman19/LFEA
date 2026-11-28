@@ -76,14 +76,15 @@ for (const [caseId, section] of [['IXP-WP', sustained], ['IXP-WPT', operating]])
 // them and closes the ones the pipe reaches. In OPE four close (three before
 // bends had real arcs, 2026-11-27), and the pipe sits at the gap distance
 // CAESAR reports there (20030 DZ -25, 20390 DX -5, 21480 DX +10, 21640 DX -10 mm).
-// In SUS none is reached.
+// In SUS none is reached. Since 2026-11-28 (thermal strain back-calculated from
+// CAESAR) a fifth closes, 21480 DZ -25 mm, where CAESAR closes it too.
 const closedGaps = (section) => section.unilateralActiveSet.gaps
   .filter((row) => row.state !== 'OPEN').map((row) => `${row.nodeId}:${row.dof}:${row.state}`).sort();
 assert.equal(sustained.unilateralActiveSet.gaps.length, 6, 'BM4 gapped supports found');
 assert.deepEqual(closedGaps(sustained), [], 'BM4 SUS: no gap closes');
 assert.deepEqual(closedGaps(operating),
-  ['20030:UZ:CLOSED-', '20390:UX:CLOSED-', '21480:UX:CLOSED+', '21640:UX:CLOSED-'], 'BM4 OPE closed gaps');
-for (const [node, dof] of [['20030', 'UZ'], ['20390', 'UX'], ['21480', 'UX'], ['21640', 'UX']]) {
+  ['20030:UZ:CLOSED-', '20390:UX:CLOSED-', '21480:UX:CLOSED+', '21480:UZ:CLOSED-', '21640:UX:CLOSED-'], 'BM4 OPE closed gaps');
+for (const [node, dof] of [['20030', 'UZ'], ['20390', 'UX'], ['21480', 'UX'], ['21480', 'UZ'], ['21640', 'UX']]) {
   const row = operating.displacement.matched.find((entry) => entry.nodeId === node);
   assert.ok(Math.abs(row[dof].ours - row[dof].cii) < 0.01, `BM4 OPE ${node} ${dof} ${row[dof].ours} mm sits at CAESAR's ${row[dof].cii} mm`);
 }
@@ -104,14 +105,17 @@ const withinFivePercent = (section) => section.restraint.matched
 // (1.17e-5 from 20 C) is about 12% below CAESAR's at 325 C; with a CAESAR-like
 // 1.3289e-5 from 21 C the same model gives OPE 25/30 and ratio 0.99. The OPE
 // marks rise once the thermal default comes from the CAESAR material database.
+// Re-measured 2026-11-28 with the thermal strain back-calculated from CAESAR's
+// own output (lfea-thermal-default.js): OPE 25/30 within 5% (was 18), 29/30
+// counting lift-offs (was 22). SUS unchanged.
 const sustainedWithin = withinFivePercent(sustained);
 const operatingWithin = withinFivePercent(operating);
 assert.ok(sustainedWithin >= 28, `BM4 SUS: only ${sustainedWithin}/30 restraints within 5% of CAESAR`);
-assert.ok(operatingWithin >= 18, `BM4 OPE: only ${operatingWithin}/30 restraints within 5% of CAESAR`);
+assert.ok(operatingWithin >= 25, `BM4 OPE: only ${operatingWithin}/30 restraints within 5% of CAESAR`);
 const sustainedAgree = sustainedWithin + sustained.restraint.zeroReactionMatches.length;
 const operatingAgree = operatingWithin + operating.restraint.zeroReactionMatches.length;
 assert.ok(sustainedAgree >= 30, `BM4 SUS: only ${sustainedAgree}/30 restraints within 5% or lifted off with CAESAR`);
-assert.ok(operatingAgree >= 22, `BM4 OPE: only ${operatingAgree}/30 restraints within 5% or lifted off with CAESAR`);
+assert.ok(operatingAgree >= 29, `BM4 OPE: only ${operatingAgree}/30 restraints within 5% or lifted off with CAESAR`);
 
 // ---------------------------------------------------------------------------
 // Finding 3: displacements are systematically UNDER-predicted.
@@ -136,8 +140,9 @@ const operatingRatio = operating.displacement.totalAbsoluteTranslation.ratio;
 // moves back toward 1.0 once support friction is applied.
 // Re-measured 2026-11-27 against friction-free CASE 19 with real bend arcs:
 // SUS 1.0171 (0.68 with straight-chord bends), OPE 0.8930.
+// Re-measured 2026-11-28 with the back-calculated CAESAR thermal strain: OPE 0.9994.
 assert.ok(sustainedRatio > 0.99 && sustainedRatio < 1.05, `BM4 SUS displacement ratio ${sustainedRatio.toFixed(4)} moved outside its recorded band`);
-assert.ok(operatingRatio > 0.86 && operatingRatio < 0.93, `BM4 OPE displacement ratio ${operatingRatio.toFixed(4)} moved outside its recorded band`);
+assert.ok(operatingRatio > 0.99 && operatingRatio < 1.01, `BM4 OPE displacement ratio ${operatingRatio.toFixed(4)} moved outside its recorded band`);
 
 // ---------------------------------------------------------------------------
 // Finding 4: the algebraic residual gate blocks a solution CAESAR confirms.
