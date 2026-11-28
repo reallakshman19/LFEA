@@ -120,4 +120,7 @@ assert.ok(summary.sustainedAll.within1Pct >= 114 && summary.sustainedAll.within5
 assert.ok(summary.expansionStraightPipe.within1Pct >= 39 && summary.expansionStraightPipe.within5Pct >= 77
   && summary.expansionStraightPipe.medianPct <= 2.0
   && Math.abs(summary.expansionStraightPipe.medianCaesarOverLfea - 1) <= 0.005, 'expansion straight pipe vs CASE 21');
+// Re-measured 2026-11-28 with weldolet run ends on the CAESAR-fitted default:
+// all ends within 5% 84 -> 92, median 2.4% -> 2.0%.
+assert.ok(summary.expansionAll.within5Pct >= 92 && summary.expansionAll.medianPct <= 2.0, 'expansion, all compared ends vs CASE 21');
 console.log('LFEA B31 InputXML vs CAESAR comparison PASS');
