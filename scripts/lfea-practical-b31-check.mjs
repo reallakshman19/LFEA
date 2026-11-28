@@ -50,15 +50,15 @@ assert.throws(() => deriveLfeaB31AuthorityInput(bm4.preFlight, { scMpa: '', shMp
   (error) => error.code === 'LFEA_B31_PRACTICAL_ALLOWABLE_INVALID');
 const bm4Status = runLfeaPracticalB31Check(bm4, { scMpa: 137.9, shMpa: 130 });
 // 128 since 2026-11-26: reducer and tee elements are checked too (B31J factors).
-assert.match(bm4Status, /128 check\(s\)/u);
-assert.match(bm4Status, /B31J SIFs at 0 reducer end\(s\) and 5 welding-tee end\(s\) \(LFEA_PRACTICAL_B31_FITTINGS\); CAESAR-fitted SIFs at 8 weldolet run end\(s\), LFEA default \(LFEA_DEFAULT_WELDOLET_CAESAR_BACKCALC\), no B31J weldolet equations; 1 fitting end\(s\) not covered, unity factors/u);
+assert.match(bm4Status, /282 check\(s\)/u);
+assert.match(bm4Status, /B31J SIFs at 0 reducer end\(s\) and 6 welding-tee end\(s\) \(LFEA_PRACTICAL_B31_FITTINGS\); B31J bend SIFs at 136 bend end\(s\), pressure-corrected; CAESAR-fitted SIFs at 8 weldolet run end\(s\), LFEA default \(LFEA_DEFAULT_WELDOLET_CAESAR_BACKCALC\), no B31J weldolet equations; 1 fitting end\(s\) not covered, unity factors/u);
 assert.match(bm4Status, /NOT ENGINEER-REVIEWED/u);
 const bm4State = bm4.b31.getState();
 assert.equal(bm4State.publicationCurrentness, 'CURRENT');
 assert.equal(bm4State.authorization.reviewerIdentity, LFEA_B31_PRACTICAL_REVIEWER);
 assert.equal(bm4State.authority.editionDataset.sourceIdentity.standard, LFEA_USER_ALLOWABLE_SOURCE);
 const bm4Results = bm4State.application.results;
-assert.equal(bm4Results.length, 128);
+assert.equal(bm4Results.length, 282);
 for (const row of bm4Results) {
   assert.equal(row.codeResult.allowableStress, 130e6, 'SUSTAINED compares against the entered Sh');
   assert.ok(Number.isFinite(row.codeResult.utilization) && row.codeResult.utilization >= 0);
@@ -67,11 +67,12 @@ console.log(`BM4 PASS ${bm4Status}`);
 
 const bm1 = runtimeFor('benchmarks/LFEA/BM1/BM1_InputXML.xml', ['IXP-W', 'IXP-WP']);
 const bm1Status = runLfeaPracticalB31Check(bm1, { scMpa: 137.9, shMpa: 130 });
-assert.match(bm1Status, /36 check\(s\)/u, 'BM1 checks both the weight and the weight+pressure case');
+assert.match(bm1Status, /92 check\(s\)/u, 'BM1 checks both the weight and the weight+pressure case (its two bends included)');
+assert.match(bm1Status, /B31J bend SIFs at 24 bend end\(s\), pressure-corrected/u);
 assert.doesNotMatch(bm1Status, /not checked/u);
 const bm1Results = bm1.b31.getState().application.results;
 const sp = bm1Results.filter((row) => row.codeResult.stressTerms.pressure > 0);
-assert.equal(sp.length, 18, 'every W+P check carries the P*Do/(4t) term');
+assert.equal(sp.length, 46, 'every W+P check carries the P*Do/(4t) term');
 for (const row of bm1Results) {
   const pressureCase = row.codeResult.stressTerms.pressure > 0;
   assert.equal(pressureCase, row.checkId.endsWith('IXP-WP'), `${row.checkId} pressure term only in W+P`);

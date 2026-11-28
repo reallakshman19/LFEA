@@ -11,6 +11,7 @@ import { createLfeaNativeB31PublicationAuthority } from '../src/lfea/native-b31-
 import { createLfeaNativeExecutionAuthority } from '../src/lfea/native-execution-authority.js';
 import { createLfeaNativeResultsAuthority } from '../src/lfea/native-results-authority.js';
 import { runLfeaPracticalB31Check } from '../src/lfea/practical-b31-check.js';
+import { createCaesarEndKey } from './lfea-caesar-end-key.mjs';
 import { lfeaB31EndFittings } from '../src/lfea/practical-b31-fittings.js';
 import { isLfeaAccdbFileName } from '../src/workspace/lfea-accdb-source.js';
 import { authorizeLinearPipingInputXmlPreFlight } from '../src/workspace/linear-piping-inputxml-prefea.js';
@@ -62,7 +63,7 @@ const status = runLfeaPracticalB31Check({
   authorizeNativeB31Authority: (approval) => b31.authorize(preFlight, approval),
   publishNativeB31Application: () => b31.publish(preFlight, executionState, resultsState),
 }, { scMpa: 137.9, shMpa: 137.9 });
-assert.match(status, /B31\.3 expansion check: 132 check\(s\), IXP-WPT minus IXP-WP/u);
+assert.match(status, /B31\.3 expansion check: 296 check\(s\), IXP-WPT minus IXP-WP/u); // 132 before bends were checked (2026-11-28)
 
 // CAESAR's own output in the same database: CASE 6 (SUS) L6 = W+P1 and
 // CASE 14 (EXP) L14 = L5 - L6, both friction-free.
@@ -73,25 +74,31 @@ const caesar = (lcase) => new Map(output.filter((row) => Number(row.LCASE_NUM) =
   .map((row) => [`${Math.round(row.FROM_NODE)}-${Math.round(row.TO_NODE)}`, row]));
 const structural = preFlight.preparation.structuralPreparation;
 const kinds = new Map([...lfeaB31EndFittings(preFlight).fittings].map(([key, row]) => [key, row.kind]));
+const endKeys = new Map();
 function compare(category, pattern, reference) {
   const errors = [];
   const straight = [];
+  const bends = [];
   for (const row of b31.getState().application.results.filter((entry) => entry.codeResult.category === category)) {
     const m = row.checkId.match(pattern);
     if (!m) continue;
     const binding = structural.segmentBindings.find((entry) => entry.elementId === m[1]);
-    const cii = reference.get(`${binding.startNodeId}-${binding.endNodeId}`)?.[`CODE_STRESS${m[2] === 'I' ? 'F' : 'T'}`];
+    if (!endKeys.has(reference)) endKeys.set(reference, createCaesarEndKey(preFlight, new Set(reference.keys())));
+    const mapped = endKeys.get(reference)(binding, m[2]);
+    const cii = mapped ? reference.get(mapped.key)?.[`CODE_STRESS${mapped.end === 'I' ? 'F' : 'T'}`] : undefined;
     if (cii === undefined || cii / 1e3 < 1) continue;
     const error = Math.abs(row.codeResult.calculatedStress / 1e6 / (cii / 1e3) - 1);
     errors.push(error);
-    if ((kinds.get(`${m[1]}:${m[2]}`) ?? binding.componentKind) === 'STRAIGHT_PIPE') straight.push(error);
+    const kind = kinds.get(`${m[1]}:${m[2]}`) ?? binding.componentKind;
+    if (kind === 'STRAIGHT_PIPE') straight.push(error);
+    if (kind === 'BEND') bends.push(error);
   }
   const summarize = (list) => {
     const sorted = [...list].sort((a, b) => a - b);
     return { ends: sorted.length, within1Pct: sorted.filter((e) => e <= 0.01).length, within5Pct: sorted.filter((e) => e <= 0.05).length,
       medianPct: +(100 * sorted[sorted.length >> 1]).toFixed(2) };
   };
-  return { all: summarize(errors), straightPipe: summarize(straight) };
+  return { all: summarize(errors), straightPipe: summarize(straight), bends: summarize(bends) };
 }
 const summary = {
   name: 'BM4_L.ACCDB via the Source tab, app defaults',
@@ -103,11 +110,14 @@ console.log(JSON.stringify(summary));
 // Measured 2026-11-28. The app's thermal default is CAESAR's own BM4_L strain
 // (lfea-thermal-default.js), so expansion matches as the parity harness does:
 // before it, 63/77 straight ends within 5% and a median 3.38% low.
-assert.ok(summary.sustained.all.within1Pct >= 122 && summary.sustained.all.within5Pct === 128, 'sustained vs CAESAR CASE 6');
+// Bends checked since 2026-11-28 (128 -> 174 sustained ends, 109 -> 152 expansion).
+assert.ok(summary.sustained.all.within1Pct >= 166 && summary.sustained.all.within5Pct === 174, 'sustained vs CAESAR CASE 6');
+assert.ok(summary.sustained.bends.ends === 46 && summary.sustained.bends.within1Pct >= 44 && summary.sustained.bends.within5Pct === 46, 'sustained bends vs CASE 6');
+assert.ok(summary.expansion.bends.ends === 43 && summary.expansion.bends.within5Pct >= 39 && summary.expansion.bends.medianPct <= 1.25, 'expansion bends vs CASE 14');
 assert.ok(summary.expansion.straightPipe.within1Pct >= 45 && summary.expansion.straightPipe.within5Pct >= 67
   && summary.expansion.straightPipe.medianPct <= 0.35, 'expansion straight pipe vs CASE 14');
 // Weldolet run ends on the CAESAR-fitted default (2026-11-28): 86 -> 94 within 5%, median 1.1% -> 0.87%.
-assert.ok(summary.expansion.all.within1Pct >= 55 && summary.expansion.all.within5Pct >= 94 && summary.expansion.all.medianPct <= 0.9,
+assert.ok(summary.expansion.all.within1Pct >= 74 && summary.expansion.all.within5Pct >= 133 && summary.expansion.all.medianPct <= 1.1,
   'expansion, all compared ends vs CASE 14');
 
 // Operating case IXP-WPT against CAESAR CASE 5 (OPE) W+T1+P1, friction-free:

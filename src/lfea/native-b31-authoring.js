@@ -41,8 +41,8 @@ export function listB31SustainedCandidates(preFlight) {
 }
 
 /**
- * B31 targets: exact straight pipe, plus reducer and tee elements (never bend
- * arcs) checked with B31J factors from practical-b31-fittings.js. The same
+ * B31 targets: exact straight pipe, plus reducer and tee elements and bend
+ * leads and arc chords, checked with B31J factors from practical-b31-fittings.js. The same
  * rule native-b31-code-stations.js enforces at stage() time.
  */
 export function isLfeaNativeB31Target(binding) {
