@@ -1,4 +1,5 @@
 import { resolveInputXmlThermalInputAuthority } from './inputxml-thermal-authority.js';
+import { resolveInputXmlDefaultThermalInput } from './inputxml-thermal-default.js';
 import { InputXmlLinearSolvePreparationError } from './inputxml-linear-preparation-profile.js';
 import { finiteAuthorityValue } from './inputxml-linear-preparation-authority-support.js';
 import {
@@ -17,6 +18,7 @@ export function prepareInputXmlElementAuthorities({
   modelId,
   analysisProfileId,
   thermalIntervalAuthority,
+  thermalDefaultBasis,
 }) {
   const elementBySegment = new Map(
     sourceBundle.elementRecords
@@ -58,7 +60,11 @@ export function prepareInputXmlElementAuthorities({
     }
     const analysis = segment.meta?.analysis ?? {};
     const operatingTemperature = finiteAuthorityValue(analysis.operatingTemperature);
-    const thermalInput = resolveInputXmlThermalInputAuthority({
+    // A model-interval authority wins; then a declared default for this
+    // material; then the generic project authority.
+    const thermalInput = (thermalIntervalAuthority === null
+      ? resolveInputXmlDefaultThermalInput(thermalDefaultBasis, segment.meta?.materialNumber)
+      : null) ?? resolveInputXmlThermalInputAuthority({
       intervalAuthority: thermalIntervalAuthority,
       modelId,
       sourceBundleSemanticHash,

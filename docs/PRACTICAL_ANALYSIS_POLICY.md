@@ -31,7 +31,7 @@ instead:
 | B31 check had no expansion (displacement stress range) category | When the run has an operating case (`IXP-WPT`, else `IXP-WT`) and a sustained case (`IXP-WP`, else `IXP-W`), every sustained end also gets a `DISPLACEMENT_STRESS_RANGE` check on the operating minus sustained actions (CAESAR's EXP = OPE − SUS). Stress is B31.3 (2016+) Eq. (17), SE = √((\|Sa\| + Sb)² + (2St)²) with Sa = ia\|Fa\|/A, on the nominal section (a reducer end at that end's size), with the fitting's displacement SIFs. Allowable is Eq. (1a), f (1.25 Sc + 0.25 Sh), with f = 1 (`NOT ENGINEER-REVIEWED (LFEA default: f = 1, 7000 cycles or fewer)`). The engine rule is `DISPLACEMENT_RANGE_COLD_HOT_CYCLE_REDUCTION_EQ17_AXIAL_TORSION_V1`; profiles on the original rule keep the B31.3-2006 form. | Code check status line: "B31.3 expansion check: N check(s), IXP-WPT minus IXP-WP, allowable f (1.25 Sc + 0.25 Sh), f = 1 (LFEA default)", plus a weldolet warning when weldolets are present. |
 | InputXML bends with CAESAR station nodes (`NODE1`/`NODE2`) refused an arc (`BEND_INTERNAL_STATION_GEOMETRY_NOT_SUPPORTED`) and ran as straight chords (`GENERIC_APPROX_BEND_STRAIGHT_CHORD`). Every bend in BM4 (11) and BM1 (2) has station nodes. | Resolved from the corner, CAESAR's own convention: FROM→TO runs along the incoming leg to the corner, and the next element leaves along the outgoing leg; the tangent points sit R·tan(θ/2) back on each leg (`src/core/geometry/adapters/inputxml-bend-corner.js`, tangent basis `INPUTXML_CORNER_INTERSECTION_V1`). It is the same arithmetic as ACCDB's `ACCDB_CORNER_INTERSECTION_V1`, and the bend then follows the same retopology. A bend whose corner is not a simple two-span corner, or whose radius does not fit, stays a chord with the diagnostic. | Pre-flight diagnostic `BEND_CORNER_ARC_GEOMETRY_RESOLVED` per bend; the chord limitation disappears from the retained list. |
 | Requested cases defaulted to weight only, so no expansion check ran until the user applied a selection on the Model tab | When no selection has been applied, the Source workflow requests weight, the sustained case (`WEIGHT_PRESSURE`) and one operating case (`WEIGHT_PRESSURE_TEMPERATURE`, else `WEIGHT_TEMPERATURE`) that the model has (`src/workspace/lfea-default-case-selection.js`). If that set would block a model the weight-only pass did not, weight only is kept. Applying a selection replaces it. | Source facts: "Requested cases: IXP-W, IXP-WP, IXP-WPT (LFEA default: weight, sustained and operating cases; change on the Model tab)". |
-| The Source tab took InputXML only; a CAESAR ACCDB could be analysed only by the scripts | The Source tab imports `.accdb`/`.mdb` too (`src/workspace/lfea-accdb-source.js`). The eleven INPUT_* tables are read in the page (nothing is uploaded), with a SHA-256 over the exact bytes, and pre-flight runs through the same governed chain as InputXML (`linear-piping-accdb-intake.js`), so every default above applies. A file without the CAESAR model tables is refused and the previous source stays. BM4_L through the Source workflow on app defaults (`scripts/lfea-accdb-source-import-check.mjs`): SUS 122/128 ends within 1% of CAESAR CASE 6, all 128 within 5%; EXP straight pipe a median 3.38% low against CASE 14 (the default thermal strain), 63/77 within 5%. | Source facts: "Format: CAESAR II ACCDB (model tables read in the browser)". |
+| The Source tab took InputXML only; a CAESAR ACCDB could be analysed only by the scripts | The Source tab imports `.accdb`/`.mdb` too (`src/workspace/lfea-accdb-source.js`). The eleven INPUT_* tables are read in the page (nothing is uploaded), with a SHA-256 over the exact bytes, and pre-flight runs through the same governed chain as InputXML (`linear-piping-accdb-intake.js`), so every default above applies. A file without the CAESAR model tables is refused and the previous source stays. BM4_L through the Source workflow on app defaults (`scripts/lfea-accdb-source-import-check.mjs`): SUS 122/128 ends within 1% of CAESAR CASE 6, all 128 within 5%; EXP straight pipe a median 0.34% from CASE 14, 67/77 within 5% (3.38% low and 63/77 before the thermal default below). | Source facts: "Format: CAESAR II ACCDB (model tables read in the browser)". |
 | InputXML was diagnosed in its own length unit (mm or in) but given the 25 mm geometry allowance in metres, i.e. 0.025 mm. So BM4 as CAESAR exported it blocked on its three 1 mm backtracking elements (seven `TOPOLOGY_COLLINEAR_SEGMENT_OVERLAP`), which the ACCDB path accepts in BM4_L | The allowance is passed in the source unit (`lfeaProximityOptionsForSourceUnit`, `src/workspace/lfea-geometry-allowance.js`): 25 mm whatever the file's unit, and no allowance for a unit LFEA does not know. The overlaps are still detected and named, as ADVISORY "accepted within the declared 25 allowance"; anything past 25 mm still blocks (a 30 mm backtrack in BM4 does). The model runs as written, as CAESAR ran it; the bounded sign-flip repair (`InputXML_BM4.repaired.xml`) stays a benchmark variant. BM4 as exported vs Output_BM4: SUS straight pipe 100/111 within 1% of CASE 19; EXP straight pipe at a CAESAR-like strain a median 3.71% (3.55% repaired). | Pre-flight findings: "IX-S89 and IX-S93 classify as collinear overlap, accepted within the declared 25 allowance." |
 | An element whose declared delta does not close its loop blocked at any miss over 1e-6 (`TOPOLOGY_ELEMENT_DELTA_CLOSURE_MISMATCH`). Real models miss by 0.0009 to 8.4 mm from rounded deltas | A miss within the same 25 mm allowance, in the source unit, is ADVISORY: "misses by …, accepted within the declared 25 allowance", and the solved node coordinates are used (`topology-graph-diagnostics.js`, `topologyOptions`). A larger miss still blocks. | Pre-flight finding on the element. |
 | Two restraints on one node and DOF blocked (`MODEL_RESTRAINT_TARGET_DUPLICATE`): the same guide typed on two adjacent elements, a Y support repeated. Five of seven real models had them | A restraint whose every DOF is held rigidly both ways (no gap, spring or connecting node) by another restraint at the same node is merged into it, listed and not compiled (`inputxml-restraint-duplicate-merge.js`, `LFEA_RESTRAINT_DUPLICATE_MERGED`). That is exact in a linear analysis: a rigid hold in parallel with anything is the rigid hold. Duplicates no rigid hold covers (connecting nodes, two springs) still block. CI: a copied guide on BM4 merges and changes no displacement. | Pre-flight finding per merged restraint, CONDITIONAL. |
@@ -40,6 +40,7 @@ instead:
 | The smooth-90° default (above) was passed to every bend, and the factor calculator refuses it on anything but 90°, so any model with a 45° bend blocked (`BEND_FACTOR_SET_NOT_QUALIFIED`) | The correction applies only to 90° bends, within the calculator's own 1e-6° ("where applicable"); other angles keep their uncorrected factor. CI: BM4 with one bend turned to 45° runs. | Bend factor record. |
 | A tee whose run legs were not collinear within 1 + cos θ ≤ 1e-9 (0.003°) blocked (`PIPING_COMPONENT_BRANCH_RUN_NOT_IDENTIFIED`); a real tee was 0.008° off | 1e-6, i.e. 0.08° (`LFEA_PRACTICAL_RUN_COLLINEARITY_V1`, `inputxml-production-branch-modifiers.js`). | Branch factor record. |
 | CAESAR specified displacements (InputXML `DISPLACEMENTS`, how a nozzle anchors a line) were not read at all, so a nozzle-anchored model solved as if free | Read (`inputxml-specified-displacement.js`): a DOF with a value in any vector is held in every case (a prescribed slot); vector 1 (D1) moves it in the temperature cases, CAESAR's W+D1+T1+P1 (`LFEA_SPECIFIED_DISPLACEMENT_D1_WITH_T1`); vectors 2–9 are counted, not applied; a DOF unset in every vector is free. Length in the model unit, rotation in degrees. A record on a node the model does not have is listed and ignored (`LFEA_DISPLACEMENT_NODE_ABSENT_IGNORED`). A DOF both displaced and restrained blocks. ACCDB displacement tables are not read yet. CI: BM4's anchor as an all-zero displacement reproduces the anchored solution exactly; D1 DZ = 5 mm moves the node 5 mm in WPT and not in W. | Pre-flight finding per record; load ledger "specified displacement". |
+| Thermal strain for carbon steel was a generic α = 1.17e-5 /K from 20 °C, which put BM4_L operating and expansion results 3.4% below CAESAR | CAESAR's own BM4_L strain (`src/workspace/lfea-thermal-default.js`, `LFEA_DEFAULT_THERMAL_CAESAR_BM4L_21_120C`): 0.00121097 for 21 → 120 °C, reconstructed from 54 straight spans (`benchmarks/LFEA/CAESAR_ACCDB/m047-bm4l-t1-interval-authority.json`), i.e. a mean α = 1.2232e-5 /K from 21 °C, for A106 Grade B (106) and A334 Grade 6 (360). Other materials keep the generic project authority; a model-interval authority, where given, still wins (`inputxml-thermal-default.js`). It is exact at 120 °C and the same mean elsewhere, so hotter lines run low, since CAESAR's mean coefficient rises with temperature: BM4 at 325 °C is about 9% low (was 12%). The CAESAR material database will replace it. CI (BM4_L via the Source tab): expansion straight pipe 45/77 within 1% and 67/77 within 5% of CASE 14, median 0.34% (was 3.38% low); operating vs CASE 5: displacement ratio 0.999 (was 0.967), worst node 0.15 mm (was 0.42), 46/47 support loads within 5%, median 0.20% (was 43/47, 1.27%). | Source facts, "Thermal basis": "N heated element(s) on the LFEA default (…): alpha 1.2232e-5 /K from 21 C, CAESAR's carbon-steel strain on BM4_L for 21 -> 120 C, low above 120 C; NOT ENGINEER-REVIEWED". |
 | Support friction (CAESAR `FRIC_COEF`) | **Not applied yet** (`GENERIC_APPROX_FRICTION_IGNORED`): supports slide freely. The record counts the friction coefficients not applied. | Same line: "N support friction coefficient(s) not applied: those supports slide freely." |
 
 Every assumed value stays in the sealed records (authority IDs, source IDs,
@@ -115,7 +116,8 @@ InputXML bends as real arcs (2026-11-27), same check:
 | OPE gaps closed | 3 | 4: 20030 DZ now closes at −25 mm, as in CAESAR | 4 |
 
 OPE support loads drop with real arcs because the app's default thermal strain
-(1.17e-5 /K from 20 °C) is about 12% below CAESAR's at BM4's 325 °C. With a
+was about 12% below CAESAR's at BM4's 325 °C (1.17e-5 /K from 20 °C; since
+2026-11-28 CAESAR's BM4_L mean, 1.2232e-5 /K from 21 °C, about 9% below). With a
 CAESAR-like 1.3289e-5 /K from 21 °C (a probe only, not shipped) the same model
 reaches 25/30 and a displacement ratio of 0.99. The OPE marks rise once the
 thermal default comes from the CAESAR material database.
@@ -127,8 +129,8 @@ BM4 InputXML, app defaults, default cases):
 |---|---|---|---|---|
 | SUS straight pipe vs CASE 19 | 111 | 100 | 106 | 0.08% |
 | SUS, all compared ends | 126 | 114 | 121 | 0.10% |
-| EXP straight pipe vs CASE 21, app thermal default | 98 | 2 | 4 | 13.5% low (CAESAR/LFEA 1.147) |
-| EXP straight pipe, scaled to a CAESAR-like strain (×1.132) | 98 | 17 | 55 | 3.55% |
+| EXP straight pipe vs CASE 21, app thermal default (BM4_L mean since 2026-11-28) | 98 | 0 | 7 | 9.8% low (CAESAR/LFEA 1.102; was 1.147) |
+| EXP straight pipe, scaled to a CAESAR-like strain (×1.086) | 98 | 21 | 60 | 3.71% |
 | EXP straight pipe, chords (before), same scaling | 98 | 8 | 31 | 11.3% |
 
 Before 2026-11-27 the BM4 InputXML expansion check was compared with BM4_L's
@@ -315,22 +317,21 @@ L14 = L5 − L6, at 128 W+P ends, 109 of them with CAESAR at 1 MPa or more.
   The status line warns about this whenever weldolets are present.
 - This comparison prepares BM4_L as the parity harness does: CAESAR's
   reconstructed thermal strain (0.00121097 for 21 → 120 °C) and B31J bends
-  with the smooth-90° correction. **With the app's own defaults** (α 1.17e-5
-  from 20 °C, so 0.00117; smooth-90° on since 2026-11-27), straight-pipe
-  expansion stress is a median 3.4% below CAESAR and 63 of 77 ends are within
-  5%. Before smooth-90° was the default it was 7.5% and 24 of 77. The 3.4%
-  left is the thermal strain; the default coefficient will come from the
-  CAESAR material database the owner is providing. The L2/L6/L5 parity
-  figures above also use the CAESAR-matched preparation.
+  with the smooth-90° correction. **The app's own defaults now give the same
+  figures**: since 2026-11-28 the thermal default is that same CAESAR strain
+  (see the table at the top). Before that, with α 1.17e-5 from 20 °C,
+  straight-pipe expansion stress was a median 3.4% below CAESAR and 63 of 77
+  ends were within 5%; before smooth-90° was the default, 7.5% and 24 of 77.
+  The L2/L6/L5 parity figures above also use the CAESAR-matched preparation.
 
 Known B31 limits, all stated in the status line:
 
 - Each check set covers one material, the one with the most elements.
 - Expansion at weldolet run ends uses the Table D300 SIF and is about 37% low
   against CAESAR (see above).
-- The app's default thermal strain puts BM4_L operating and expansion
-  results about 3.4% below CAESAR, and BM4 (325 °C) about 13% below (see
-  above).
+- The app's default thermal strain is CAESAR's BM4_L value, exact at 120 °C;
+  lines hotter than that run low (BM4 at 325 °C about 9%), and materials other
+  than A106 B and A334 Gr 6 keep the generic 1.17e-5 /K (see above).
 - Bends are not checked yet; bend-arc elements stay outside the native
   boundary. Straight pipe, reducer and tee elements are checked.
 - Weldolet run ends use the Table D300 default above, not B31J, and weldolet

@@ -6,10 +6,11 @@
  * L21 = L20 - L19 (FRICTION_MULTIPLIER 0, see
  * benchmarks/LFEA/CAESAR_ACCDB/bm4nl-l19-l20-linear-solve.profile.json).
  *
- * BM4 runs at T1 = 325 C. The app's default thermal strain (1.17e-5 /K from
- * 20 C) is about 12% below CAESAR's carbon-steel value there, so expansion
- * stress is pinned LOW by that much until the default comes from the CAESAR
- * material database. Because the expansion range is linear in the thermal
+ * BM4 runs at T1 = 325 C. The app's default thermal strain (CAESAR's BM4_L
+ * mean, 1.2232e-5 /K from 21 C, exact at 120 C) is about 9% below CAESAR's
+ * carbon-steel value there, so expansion stress is pinned LOW by that much
+ * until the default comes from the CAESAR material database. Because the
+ * expansion range is linear in the thermal
  * strain, the check also scales it by a CAESAR-like strain (1.3289e-5 /K from
  * 21 C) to show the rest of the chain agrees.
  */
@@ -26,6 +27,7 @@ import {
   prepareLinearPipingInputXmlPreFlight,
 } from '../src/workspace/linear-piping-inputxml-prefea.js';
 import { lfeaDefaultRequestedCaseIds } from '../src/workspace/lfea-default-case-selection.js';
+import { LFEA_THERMAL_DEFAULT_BASIS } from '../src/workspace/lfea-thermal-default.js';
 
 // The file as CAESAR exported it (its three 1 mm backtracking elements run on
 // the 25 mm geometry allowance), since that is what a user loads.
@@ -102,7 +104,7 @@ function measure(list, scale = 1) {
 const straight = (list) => list.filter((row) => row.kind === 'STRAIGHT_PIPE');
 const sus = rows('SUSTAINED', /^B31-SUS-(.+)-([IJ])-IXP-WP$/u, caesarCodeStress('CASE 19 (SUS)'));
 const exp = rows('DISPLACEMENT_STRESS_RANGE', /^B31-EXP-(.+)-([IJ])-IXP-WPT-IXP-WP$/u, caesarCodeStress('CASE 21 (EXP)'));
-const thermalScale = (1.3289e-5 * 304) / (1.17e-5 * 305);
+const thermalScale = (1.3289e-5 * 304) / (LFEA_THERMAL_DEFAULT_BASIS.coefficientsByMaterial[106] * (598.15 - LFEA_THERMAL_DEFAULT_BASIS.installationTemperature));
 const summary = {
   name: 'BM4 InputXML, app defaults',
   sustainedStraightPipe: measure(straight(sus)),
@@ -117,7 +119,8 @@ assert.ok(summary.sustainedStraightPipe.within1Pct >= 100 && summary.sustainedSt
   && summary.sustainedStraightPipe.medianPct <= 0.1, 'sustained straight pipe vs CASE 19');
 assert.ok(summary.sustainedAll.within1Pct >= 114 && summary.sustainedAll.within5Pct >= 121, 'sustained, all compared ends vs CASE 19');
 // Pinned low by the default thermal strain (see header); moves when that default changes.
-assert.ok(summary.expansionStraightPipe.medianCaesarOverLfea > 1.12 && summary.expansionStraightPipe.medianCaesarOverLfea < 1.17,
+// 2026-11-28: default from CAESAR's BM4_L 21 -> 120 C strain, 1.147 -> 1.102 here at 325 C.
+assert.ok(summary.expansionStraightPipe.medianCaesarOverLfea > 1.08 && summary.expansionStraightPipe.medianCaesarOverLfea < 1.12,
   `expansion straight pipe: CAESAR/LFEA median ${summary.expansionStraightPipe.medianCaesarOverLfea}`);
 assert.ok(summary.expansionStraightPipeAtCaesarLikeStrain.within5Pct >= 55
   && summary.expansionStraightPipeAtCaesarLikeStrain.medianPct <= 3.75, 'expansion straight pipe at a CAESAR-like strain');
