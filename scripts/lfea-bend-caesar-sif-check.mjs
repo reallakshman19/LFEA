@@ -86,7 +86,9 @@ for (const binding of structural.segmentBindings) {
   assert.equal(exp.get(mapped.key).SIFINF, 1, `${mapped.key} I: CAESAR has no bend SIF at a lead start`);
   plainLeadStarts += 1;
 }
-assert.equal(compared, 34, 'bend ends at CAESAR nodes with CAESAR\'s factors');
+// 34 -> 35 (2026-11-28): the bend 20295-21430 arrives at its 21429 station
+// on CAESAR's row 20296-21429 (CAESAR splits that bend at 20296).
+assert.equal(compared, 35, 'bend ends at CAESAR nodes with CAESAR\'s factors');
 assert.equal(leadStarts, 2, 'the two vanishing leads (20230, 20760) take the bend SIF, as CAESAR does');
 assert.ok(plainLeadStarts >= 8, 'plain lead starts match CAESAR SIF 1');
 assert.equal(exceptions.length, 4, 'only the bend into the two-leg tee at 20700 differs');

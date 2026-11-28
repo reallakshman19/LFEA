@@ -306,6 +306,47 @@ B31 check. Now:
 - **Totals.** BM4_L expansion, all ends: 109 → 152 compared, 133 within 5%,
   median 1.1%. Sustained: 128 → 174, all within 5%.
 
+Tee plane mapping (2026-11-28). The same axis issue as the bend chords, at
+welding tees.
+
+- **What was wrong.** Production solves every leg of a three-leg welding tee
+  with the B31J branch modifier (`teeExactMechanics`). The modifier's reference
+  vector is the tee-plane normal (`directional-branch-flexibility.js`), so on
+  every leg local y is the normal and in-plane is local my. The B31 check
+  chose the plane from the structural model's leg axes instead. On run legs
+  those happen to agree. On BM4's two branch legs, though, the structural z
+  lies on the normal, so in-plane was read from mz: the out-of-plane moment.
+  Checked on the solved BM4_L run legs: local my equals the global end moment
+  projected on the tee-plane normal exactly.
+- **Fix.** Tee legs always map in-plane to local my
+  (`practical-b31-fittings.js`).
+- **Pairing.** CAESAR splits both branches at nodes of its own: 20150-20161-20160
+  and 20295-20296-21429. Those ends had no CAESAR row, so the comparisons
+  never measured them. `scripts/lfea-caesar-end-key.mjs` now pairs an end at a
+  CAESAR node with the one CAESAR row that has that node at that end, where the
+  row's other node is a node LFEA does not have. When the element's other node
+  is a CAESAR node, the row must also continue to it.
+
+| BM4_L tee branch ends vs CAESAR | In-plane from mz (before) | In-plane from my |
+|---|---|---|
+| 20295-20296 I, expansion CASE 14 | 20.9% low | 4.2% low |
+| 20295-20296 I, sustained CASE 6 | 1.6% high | 2.1% high |
+| 20161-20160 J, expansion CASE 14 | 0.8% high | 2.5% high |
+| 20161-20160 J, sustained CASE 6 | 0.1% high | 0.3% high |
+
+- In- and out-of-plane indices equal CAESAR's at all 6 BM4_L welding-tee ends,
+  branches included (`scripts/lfea-b31-sustained-caesar-comparison.mjs`).
+- Totals with the newly paired ends:
+  - BM4_L expansion: 152 → 156 compared, 137 within 5%, median 1.1%. Welding-tee
+    ends are 6 of 6 within 5%, worst 4.2%.
+  - BM4_L sustained: 174 → 178 ends, all within 5%, worst 2.1%.
+  - BM4 InputXML, sustained CASE 17 (CAESAR with friction): 126 → 128 non-bend
+    ends, 115 within 5%.
+  - BM4 InputXML, expansion CASE 21: non-bend ends 113 → 116, 94 within 5%. The
+    median goes from 2.0% to 2.18% because the added rows sit above it.
+  - The 20295 bend's 21429 station (row 20296-21429) also pairs now: 35 bend ends
+    are held to CAESAR's factors.
+
 BM4_L Y supports are two-way (2026-11-26). LFEA read ACCDB restraint code 3
 as a one-way "+Y". That label came from the BM4 InputXML run, where those
 supports really are +Y. BM4_L is different:

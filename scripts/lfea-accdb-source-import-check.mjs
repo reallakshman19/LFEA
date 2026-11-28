@@ -111,13 +111,15 @@ console.log(JSON.stringify(summary));
 // (lfea-thermal-default.js), so expansion matches as the parity harness does:
 // before it, 63/77 straight ends within 5% and a median 3.38% low.
 // Bends checked since 2026-11-28 (128 -> 174 sustained ends, 109 -> 152 expansion).
-assert.ok(summary.sustained.all.within1Pct >= 166 && summary.sustained.all.within5Pct === 174, 'sustained vs CAESAR CASE 6');
-assert.ok(summary.sustained.bends.ends === 46 && summary.sustained.bends.within1Pct >= 44 && summary.sustained.bends.within5Pct === 46, 'sustained bends vs CASE 6');
-assert.ok(summary.expansion.bends.ends === 43 && summary.expansion.bends.within5Pct >= 39 && summary.expansion.bends.medianPct <= 1.25, 'expansion bends vs CASE 14');
+// CAESAR's split nodes paired since 2026-11-28 (lfea-caesar-end-key.mjs): the tee
+// branches 20150-20161-20160 and 20295-20296 and the 20296-21429 bend station,
+// 174 -> 178 sustained ends, 152 -> 156 expansion..ok(summary.sustained.all.within1Pct >= 168 && summary.sustained.all.within5Pct === 178, 'sustained vs CAESAR CASE 6');
+assert.ok(summary.sustained.bends.ends === 47 && summary.sustained.bends.within1Pct >= 45 && summary.sustained.bends.within5Pct === 47, 'sustained bends vs CASE 6');
+assert.ok(summary.expansion.bends.ends === 44 && summary.expansion.bends.within5Pct >= 40 && summary.expansion.bends.medianPct <= 1.3, 'expansion bends vs CASE 14');
 assert.ok(summary.expansion.straightPipe.within1Pct >= 45 && summary.expansion.straightPipe.within5Pct >= 67
   && summary.expansion.straightPipe.medianPct <= 0.35, 'expansion straight pipe vs CASE 14');
 // Weldolet run ends on the CAESAR-fitted default (2026-11-28): 86 -> 94 within 5%, median 1.1% -> 0.87%.
-assert.ok(summary.expansion.all.within1Pct >= 74 && summary.expansion.all.within5Pct >= 133 && summary.expansion.all.medianPct <= 1.1,
+assert.ok(summary.expansion.all.within1Pct >= 74 && summary.expansion.all.within5Pct >= 137 && summary.expansion.all.medianPct <= 1.1,
   'expansion, all compared ends vs CASE 14');
 
 // Operating case IXP-WPT against CAESAR CASE 5 (OPE) W+T1+P1, friction-free:

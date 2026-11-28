@@ -129,26 +129,36 @@ console.log(JSON.stringify(summary));
 
 // Measured 2026-11-26. Re-measured 2026-11-28 with bends checked: 46 more
 // rows (bend ends at CAESAR's own nodes, src/lfea/practical-b31-fittings.js),
-// 43 of them at 1 MPa or more.
-assert.equal(rows.length, 174, 'every W+P end CAESAR reports has an expansion row');
+// 43 of them at 1 MPa or more. Re-measured 2026-11-28 with CAESAR's split nodes
+// paired (lfea-caesar-end-key.mjs): the tee branches 20150-20161-20160 and
+// 20295-20296 and the 20296-21429 bend station add 4 rows, 4 compared.
+assert.equal(rows.length, 178, 'every W+P end CAESAR reports has an expansion row');
 assert.ok(rows.every((row) => Math.abs(row.allowable - row.caesarAllowable) < 0.05),
   'the allowable equals CAESAR\'s f (1.25 Sc + 0.25 Sh) = 206.8 MPa at every end');
 assert.ok(rows.filter((row) => row.caesar < 1).every((row) => Math.abs(row.lfea - row.caesar) < 0.1),
   'ends CAESAR puts under 1 MPa are within 0.1 MPa');
-assert.equal(compared.length, 152);
+assert.equal(compared.length, 156);
 // Re-measured 2026-11-28 with weldolet run ends on the CAESAR-fitted default
 // (LFEA_DEFAULT_WELDOLET_CAESAR_BACKCALC): within 1% 53 -> 55, within 5%
 // 86 -> 94, median 1.1% -> 0.87%. Then with bends checked (109 -> 152 ends):
-// within 1% 74, within 5% 133, median 1.1%.
-assert.ok(summary.within1Pct >= 74 && summary.within5Pct >= 133 && summary.medianPct <= 1.1, 'BM4_L expansion stress tolerance');
+// within 1% 74, within 5% 133, median 1.1%. Then with tee legs mapped in-plane
+// to local my (the solved B31J tee frame) and split nodes paired (156 ends):
+// within 5% 137.
+assert.ok(summary.within1Pct >= 74 && summary.within5Pct >= 137 && summary.medianPct <= 1.1, 'BM4_L expansion stress tolerance');
 assert.ok(byKind.STRAIGHT_PIPE.within5Pct >= 67 && byKind.STRAIGHT_PIPE.medianPct <= 0.34, 'straight pipe');
-assert.equal(byKind.WELDING_TEE.within5Pct, byKind.WELDING_TEE.ends, 'welding-tee ends within 5%');
-assert.ok(byKind.TEE.within5Pct >= 10, 'tee-element ends (the two-leg tee at 20700 stays at unity)');
+// Welding-tee ends, branches included since 2026-11-28: 6, all within 5%, worst
+// 4.2% (20295-20296 I, the branch at 20295; 20.9% low when its in-plane
+// moment was read from local mz, the structural axes, not the solved tee frame).
+assert.equal(byKind.WELDING_TEE.ends, 6);
+assert.ok(byKind.WELDING_TEE.within5Pct === 6 && byKind.WELDING_TEE.maxPct <= 4.2, 'welding-tee ends within 5%');
+assert.ok(byKind.TEE.within5Pct >= 12, 'tee-element ends (the two-leg tee at 20700 stays at unity)');
 // Bends: B31J SIFs with the declared-pressure correction, equal to CAESAR's
 // (scripts/lfea-bend-caesar-sif-check.mjs); the leads' plain-pipe starts count here too. 39 of 43 within 5%. The worst
 // (17%) is the bend 20690-20700 into the two-leg tee at 20700, where CAESAR
 // uses 1.5737 in and out of plane.
-assert.ok(byKind.BEND.ends === 43 && byKind.BEND.within5Pct >= 39 && byKind.BEND.medianPct <= 1.25 && byKind.BEND.maxPct <= 17.2, 'bend ends');
+// 43 -> 44 (2026-11-28): the 21429 station on CAESAR's split row 20296-21429 (2.0%);
+// 40 within 5%, median 1.3%.
+assert.ok(byKind.BEND.ends === 44 && byKind.BEND.within5Pct >= 40 && byKind.BEND.medianPct <= 1.3 && byKind.BEND.maxPct <= 17.2, 'bend ends');
 assert.ok(byKind.REDUCER.within5Pct >= 4 && byKind.REDUCER.maxPct <= 7.1, 'reducers (labelled r2/L2 defaults)');
 // Weldolet run ends: CAESAR's own SIFs (2.31-2.33, torsion 2.93-2.97) via
 // the fitted default. With Table D300 (about 1.5) they were 35-40% low.

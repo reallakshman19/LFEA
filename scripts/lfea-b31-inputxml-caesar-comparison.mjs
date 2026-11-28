@@ -131,10 +131,13 @@ assert.ok(summary.expansionStraightPipe.within1Pct >= 39 && summary.expansionStr
   && Math.abs(summary.expansionStraightPipe.medianCaesarOverLfea - 1) <= 0.005, 'expansion straight pipe vs CASE 21');
 // Re-measured 2026-11-28 with weldolet run ends on the CAESAR-fitted default:
 // all ends within 5% 84 -> 92, median 2.4% -> 2.0%.
-assert.ok(summary.expansionNonBend.within5Pct >= 92 && summary.expansionNonBend.medianPct <= 2.0, 'expansion, all compared non-bend ends vs CASE 21');
+// Re-measured 2026-11-28 with CAESAR's split nodes paired (lfea-caesar-end-key.mjs)
+// and tee legs mapped in-plane to local my: the tee branch ends join, 113 -> 116
+// non-bend ends, within 5% 92 -> 94; median 2.0% -> 2.18% (the added rows sit
+// above it; the earlier ends are unchanged)..ok(summary.expansionNonBend.within5Pct >= 94 && summary.expansionNonBend.medianPct <= 2.2, 'expansion, all compared non-bend ends vs CASE 21');
 // Bends checked (2026-11-28), ends at CAESAR's own nodes: B31J SIFs with the
 // declared-pressure correction, equal to CAESAR's B31.3-2022 SIFs.
-assert.ok(summary.sustainedBends.ends === 42 && summary.sustainedBends.within1Pct >= 40 && summary.sustainedBends.within5Pct === 42, 'sustained bends vs CASE 19');
-assert.ok(summary.expansionBends.ends === 42 && summary.expansionBends.within5Pct >= 38 && summary.expansionBends.medianPct <= 1.1, 'expansion bends vs CASE 21');
-assert.ok(summary.expansionAll.within5Pct >= 130 && summary.expansionAll.medianPct <= 1.8, 'expansion, all compared ends');
+assert.ok(summary.sustainedBends.ends === 43 && summary.sustainedBends.within1Pct >= 41 && summary.sustainedBends.within5Pct === 43, 'sustained bends vs CASE 19');
+assert.ok(summary.expansionBends.ends === 43 && summary.expansionBends.within5Pct >= 39 && summary.expansionBends.medianPct <= 1.1, 'expansion bends vs CASE 21');
+assert.ok(summary.expansionAll.within5Pct >= 133 && summary.expansionAll.medianPct <= 1.85, 'expansion, all compared ends');
 console.log('LFEA B31 InputXML vs CAESAR comparison PASS');

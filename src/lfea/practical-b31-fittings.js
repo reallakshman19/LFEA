@@ -312,14 +312,15 @@ export function lfeaB31EndFittings(preFlight) {
     });
     if (result.status !== 'QUALIFIED') return { factorSet: null, note: `${label}: outside the B31J welding-tee range, unity factors` };
     const leg = legs.indexOf(binding) === branchIndex ? 'BRANCH' : 'RUN';
-    const normal = unit(cross(directions[runPair[0]], directions[branchIndex]));
-    const axes = elements.get(binding.elementId).localAxes;
-    const mapping = Math.abs(dot(axes.y, normal)) > AXIS_ALIGNED ? { inPlaneField: 'my', outOfPlaneField: 'mz' }
-      : Math.abs(dot(axes.z, normal)) > AXIS_ALIGNED ? { inPlaneField: 'mz', outOfPlaneField: 'my' } : null;
+    // Every leg of a three-leg welding tee is solved with the B31J branch
+    // modifier, whose reference vector is the tee-plane normal
+    // (directional-branch-flexibility.js; production teeExactMechanics):
+    // local y is that normal, so in-plane is my. The structural model's own
+    // leg axes are not the solved ones (a branch leg's can have z on the normal).
     const set = result.stressFactorSets.find((row) => row.factorSetId.endsWith(`.${leg}.B31.SIF`));
     return {
-      factorSet: practicalFactorSet(binding.elementId, set, `WELDING_TEE_${leg}_${end}`, mapping),
-      note: `welding tee at ${node}, ${leg.toLowerCase()}${mapping ? '' : ' (tee plane off the local axes: larger factor both ways)'}`,
+      factorSet: practicalFactorSet(binding.elementId, set, `WELDING_TEE_${leg}_${end}`, { ...MAPPING }),
+      note: `welding tee at ${node}, ${leg.toLowerCase()}`,
     };
   }
 

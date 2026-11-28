@@ -158,15 +158,20 @@ const bm4 = compare('BM4', runtimeFor(inputXmlPreFlight('benchmarks/LFEA/BM4/Inp
 // (index sqrt(i), torsion included; exact against BM4_L below): within 1%
 // 70 -> 69, within 5% 113. The crossing row is 21800-21850 I (1.10% ->
 // 1.22% high): the factor is CAESAR's, the moment carries BM4's friction.
-assert.equal(bm4.others.checks, 126);
-assert.deepEqual(bm4.unmapped.filter((key) => !synthetic(key)), ['20150-20160 I', '20150-20160 J']);
-assert.ok(bm4.others.slpWithin0p1Pct >= 122, 'BM4 pressure term equals CAESAR SLP except at the 4 unrecorded reducer ends');
-assert.ok(bm4.others.within1Pct >= 69 && bm4.others.within5Pct >= 113 && bm4.others.maxPct <= 29.7, 'BM4 sustained stress tolerance');
-// BM4 bends (2026-11-28): 42 ends at CAESAR nodes, SIFs equal to CAESAR's
-// (B31.3-2022 output), 26 within 5%, worst 13.1%; CAESAR CASE 17 holds the
+// Re-measured 2026-11-28 with welding-tee legs mapped in-plane to local my
+// (the solved B31J tee frame) and CAESAR's split nodes paired
+// (lfea-caesar-end-key.mjs): 20150-20160 now compares against CAESAR's
+// 20150-20161 / 20161-20160 rows, 126 -> 128 checks, within 5% 113 -> 115.
+assert.equal(bm4.others.checks, 128);
+assert.deepEqual(bm4.unmapped.filter((key) => !synthetic(key)), []);
+assert.ok(bm4.others.slpWithin0p1Pct >= 124, 'BM4 pressure term equals CAESAR SLP except at the 4 unrecorded reducer ends');
+assert.ok(bm4.others.within1Pct >= 69 && bm4.others.within5Pct >= 115 && bm4.others.maxPct <= 29.7, 'BM4 sustained stress tolerance');
+// BM4 bends (2026-11-28): 44 ends at CAESAR nodes (the 20295 bend's lead
+// start and 21429 station on CAESAR's split rows), SIFs equal to CAESAR's
+// (B31.3-2022 output), 27 within 5%, worst 13.1%; CAESAR CASE 17 holds the
 // line by friction, which LFEA does not apply yet (BM4_L below is friction-free).
 assert.equal(bm4.bends.slpWithin0p1Pct, bm4.bends.checks);
-assert.ok(bm4.bends.checks === 42 && bm4.bends.within5Pct >= 26 && bm4.bends.maxPct <= 13.1, 'BM4 bends');
+assert.ok(bm4.bends.checks === 44 && bm4.bends.within5Pct >= 27 && bm4.bends.maxPct <= 13.1, 'BM4 bends');
 
 if (existsSync(BM4L_ACCDB)) {
   const MDBReaderModule = await import('mdb-reader');
@@ -179,7 +184,7 @@ if (existsSync(BM4L_ACCDB)) {
     .filter((row) => Number(row.LCASE_NUM) === 6) // CASE 6 (SUS) W+P1, friction-free
     .map((row) => [`${Math.round(row.FROM_NODE)}-${Math.round(row.TO_NODE)}`, {
       codeI: row.CODE_STRESSF / 1e3, codeJ: row.CODE_STRESST / 1e3, slpI: row.SLPF / 1e3, slpJ: row.SLPT / 1e3,
-      sifI: row.SIFINF, sifJ: row.SIFINT,
+      sifI: row.SIFINF, sifJ: row.SIFINT, sifOutI: row.SIFOUTF, sifOutJ: row.SIFOUTT,
     }]));
   const bm4l = compare('BM4_L', runtimeFor(preFlight), caesar);
   // Measured 2026-11-26. Straight pipe: 96 ends, 88 within 1%, all within 5%,
@@ -196,13 +201,18 @@ if (existsSync(BM4L_ACCDB)) {
   // Re-measured 2026-11-28 with bends checked: the tee-kind bend chords
   // (2 bends whose source element is a tee) join the fittings, 32 -> 38;
   // all within 5%, 35 within 1%.
-  assert.equal(bm4l.others.checks, 134);
-  assert.deepEqual(bm4l.unmapped.filter((key) => !synthetic(key)), ['20150-20160 I', '20150-20160 J'],
-    'BM4_L: only the split tee element 20150-20160 lacks a CAESAR row, besides synthetic arc nodes');
+  // Re-measured 2026-11-28 with welding-tee legs mapped in-plane to local my
+  // and CAESAR's split nodes paired: the tee branches 20150-20160 (CAESAR
+  // 20150-20161-20160) and 20295-21430 (CAESAR 20295-20296-21429) join,
+  // 134 -> 138 others (fittings 38 -> 42), within 1% 127 -> 129, worst 2.0% ->
+  // 2.1% (20295-20296 I, the branch end at the tee, 2.1% high).
+  assert.equal(bm4l.others.checks, 138);
+  assert.deepEqual(bm4l.unmapped.filter((key) => !synthetic(key)), [],
+    'BM4_L: every end has a CAESAR row, besides synthetic arc nodes');
   assert.equal(bm4l.slpWithin0p1Pct, bm4l.checks, 'BM4_L pressure term equals CAESAR SLP everywhere');
-  assert.ok(bm4l.others.within1Pct >= 127 && bm4l.others.within5Pct === 134 && bm4l.others.maxPct <= 2.0, 'BM4_L sustained stress tolerance');
-  assert.equal(bm4l.fittings.checks, 38);
-  assert.equal(bm4l.fittings.within5Pct, 38, 'BM4_L: every reducer, tee and weldolet end within 5% of CAESAR');
+  assert.ok(bm4l.others.within1Pct >= 129 && bm4l.others.within5Pct === 138 && bm4l.others.maxPct <= 2.1, 'BM4_L sustained stress tolerance');
+  assert.equal(bm4l.fittings.checks, 42);
+  assert.equal(bm4l.fittings.within5Pct, 42, 'BM4_L: every reducer, tee and weldolet end within 5% of CAESAR');
   // Bends (2026-11-28), friction-free CASE 6: 40 ends at CAESAR nodes, 39
   // within 1%, worst 1.1%.
   assert.ok(bm4l.bends.checks === 40 && bm4l.bends.within1Pct >= 39 && bm4l.bends.within5Pct === 40 && bm4l.bends.maxPct <= 1.1, 'BM4_L bends');
@@ -217,11 +227,26 @@ if (existsSync(BM4L_ACCDB)) {
     return caesar.get(`${binding.startNodeId}-${binding.endNodeId}`)[`sif${end}`];
   };
   let teeRunEnds = 0;
+  let teeBranchEnds = 0;
   let reducerEnds = 0;
   let weldoletEnds = 0;
+  const caesarEndKey = createCaesarEndKey(preFlight, new Set(caesar.keys()));
   for (const [key, fitting] of found.fittings) {
     const [elementId, end] = key.split(':');
     const binding = structural.segmentBindings.find((row) => row.elementId === elementId);
+    if (fitting.kind === 'WELDING_TEE') {
+      // Tee legs are solved in the B31J tee frame (y on the tee-plane
+      // normal): in-plane is local my. In- and out-of-plane indices are
+      // CAESAR's, run and branch ends alike (CAESAR's split rows for branches).
+      assert.equal(fitting.stressFactorSet.momentDirectionMapping.inPlaneField, 'my', `${key}: tee in-plane is local my`);
+      const mapped = caesarEndKey(binding, end);
+      const row = caesar.get(mapped.key);
+      const { inPlaneBending, outOfPlaneBending } = fitting.stressFactorSet.sustainedIndices;
+      assert.ok(Math.abs(inPlaneBending.value / row[`sif${mapped.end}`] - 1) < 0.005, `${key} tee in-plane index ${inPlaneBending.value} vs CAESAR ${row[`sif${mapped.end}`]}`);
+      assert.ok(Math.abs(outOfPlaneBending.value / row[`sifOut${mapped.end}`] - 1) < 0.005, `${key} tee out-of-plane index ${outOfPlaneBending.value} vs CAESAR ${row[`sifOut${mapped.end}`]}`);
+      if (fitting.note.endsWith('branch')) teeBranchEnds += 1; else teeRunEnds += 1;
+      continue;
+    }
     // Bend factors are held to CAESAR's in scripts/lfea-bend-caesar-sif-check.mjs.
     if (fitting.kind === 'BEND' || !caesar.has(`${binding.startNodeId}-${binding.endNodeId}`)) continue;
     const sustained = fitting.stressFactorSet.sustainedIndices;
@@ -232,15 +257,13 @@ if (existsSync(BM4L_ACCDB)) {
       // default: exact. Table D300 was 1.2-2.4% lower, unity 34-35% lower.
       weldoletEnds += 1;
       assert.ok(Math.abs(ratio - 1) < 1e-5, `${key} weldolet index ${larger} vs CAESAR ${sifAt(elementId, end)}`);
-    } else if (fitting.kind === 'WELDING_TEE') {
-      teeRunEnds += 1;
-      assert.ok(Math.abs(ratio - 1) < 0.005, `${key} tee index ${larger} vs CAESAR ${sifAt(elementId, end)}`);
     } else {
       reducerEnds += 1;
       assert.ok(ratio > 0.88 && ratio < 1.13, `${key} reducer SIF ${larger} vs CAESAR ${sifAt(elementId, end)}`);
     }
   }
-  assert.equal(teeRunEnds, 4, 'BM4_L welding-tee run ends compared with CAESAR (the two branch ends have no CAESAR row)');
+  assert.equal(teeRunEnds, 4, 'BM4_L welding-tee run ends compared with CAESAR');
+  assert.equal(teeBranchEnds, 2, 'BM4_L welding-tee branch ends compared with CAESAR (its split rows 20161-20160, 20295-20296)');
   assert.equal(reducerEnds, 8, 'BM4_L reducer ends compared with CAESAR');
   assert.equal(weldoletEnds, 8, 'BM4_L weldolet run ends compared with CAESAR (4 weldolets, branch not modelled)');
   assert.deepEqual([...found.unsupported.values()].map((note) => note.split(':')[0]), ['fitting at 20700 (CAESAR SIF type 3)'],
