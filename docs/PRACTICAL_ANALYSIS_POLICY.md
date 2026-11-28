@@ -40,7 +40,7 @@ instead:
 | The smooth-90° default (above) was passed to every bend, and the factor calculator refuses it on anything but 90°, so any model with a 45° bend blocked (`BEND_FACTOR_SET_NOT_QUALIFIED`) | The correction applies only to 90° bends, within the calculator's own 1e-6° ("where applicable"); other angles keep their uncorrected factor. CI: BM4 with one bend turned to 45° runs. | Bend factor record. |
 | A tee whose run legs were not collinear within 1 + cos θ ≤ 1e-9 (0.003°) blocked (`PIPING_COMPONENT_BRANCH_RUN_NOT_IDENTIFIED`); a real tee was 0.008° off | 1e-6, i.e. 0.08° (`LFEA_PRACTICAL_RUN_COLLINEARITY_V1`, `inputxml-production-branch-modifiers.js`). | Branch factor record. |
 | CAESAR specified displacements (InputXML `DISPLACEMENTS`, how a nozzle anchors a line) were not read at all, so a nozzle-anchored model solved as if free | Read (`inputxml-specified-displacement.js`): a DOF with a value in any vector is held in every case (a prescribed slot); vector 1 (D1) moves it in the temperature cases, CAESAR's W+D1+T1+P1 (`LFEA_SPECIFIED_DISPLACEMENT_D1_WITH_T1`); vectors 2–9 are counted, not applied; a DOF unset in every vector is free. Length in the model unit, rotation in degrees. A record on a node the model does not have is listed and ignored (`LFEA_DISPLACEMENT_NODE_ABSENT_IGNORED`). A DOF both displaced and restrained blocks. ACCDB displacement tables are not read yet. CI: BM4's anchor as an all-zero displacement reproduces the anchored solution exactly; D1 DZ = 5 mm moves the node 5 mm in WPT and not in W. | Pre-flight finding per record; load ledger "specified displacement". |
-| Thermal strain for carbon steel was a generic α = 1.17e-5 /K from 20 °C, which put BM4_L operating and expansion results 3.4% below CAESAR | CAESAR's own BM4_L strain (`src/workspace/lfea-thermal-default.js`, `LFEA_DEFAULT_THERMAL_CAESAR_BM4L_21_120C`): 0.00121097 for 21 → 120 °C, reconstructed from 54 straight spans (`benchmarks/LFEA/CAESAR_ACCDB/m047-bm4l-t1-interval-authority.json`), i.e. a mean α = 1.2232e-5 /K from 21 °C, for A106 Grade B (106) and A334 Grade 6 (360). Other materials keep the generic project authority; a model-interval authority, where given, still wins (`inputxml-thermal-default.js`). It is exact at 120 °C and the same mean elsewhere, so hotter lines run low, since CAESAR's mean coefficient rises with temperature: BM4 at 325 °C is about 9% low (was 12%). The CAESAR material database will replace it. CI (BM4_L via the Source tab): expansion straight pipe 45/77 within 1% and 67/77 within 5% of CASE 14, median 0.34% (was 3.38% low); operating vs CASE 5: displacement ratio 0.999 (was 0.967), worst node 0.15 mm (was 0.42), 46/47 support loads within 5%, median 0.20% (was 43/47, 1.27%). | Source facts, "Thermal basis": "N heated element(s) on the LFEA default (…): alpha 1.2232e-5 /K from 21 C, CAESAR's carbon-steel strain on BM4_L for 21 -> 120 C, low above 120 C; NOT ENGINEER-REVIEWED". |
+| Thermal strain for carbon steel was a generic α = 1.17e-5 /K from 20 °C, which put BM4_L operating and expansion results 3.4% below CAESAR and BM4 (325 °C) 13.5% below | CAESAR's own strain, **back-calculated from CAESAR's output** (`scripts/lfea-caesar-thermal-strain-backcalc.mjs`; default in `src/workspace/lfea-thermal-default.js`, `LFEA_DEFAULT_THERMAL_CAESAR_BACKCALC`). In CAESAR's friction-free EXP case, weight and pressure cancel, so every straight element obeys stretch = εL + NL/(EA) whatever the supports did. ε per element comes from CAESAR's displacements and local axial force; the median per operating temperature is CAESAR's strain there. From 21 °C, A106 Grade B: **82 °C 0.00072931** (BM1, 1 span), **120 °C 0.00121097** (BM4_L: 44 spans, reproduces the independent 54-span record to 6e-8; BM1's 9 spans agree within 0.11%, its ambient being 21.1 °C), **325 °C 0.00406767** (BM4: 34 of 54 spans within 1e-6; the same 10 short elements stray in BM4 and BM4_L). Stored as the mean α from 21 °C (1.1956e-5, 1.2232e-5, 1.3381e-5 /K), read off linearly in temperature between the points and along the end slopes beyond them (`inputxml-thermal-default.js`); it extrapolates to 1.15e-5 at 20 °C. Used for A106 B (106) and A334 Gr 6 (360); other materials keep the generic project authority, and a model-interval authority, where given, still wins. Outside 82–325 °C it is an extrapolation. The CAESAR material database will replace it. CI (`lfea-caesar-thermal-strain-backcalc-check`) re-runs the back-calculation and holds every point to it. On app defaults: **BM4_L** expansion straight pipe 45/77 within 1%, 67/77 within 5% of CASE 14, median 0.34% (was 3.38% low); operating vs CASE 5 displacement ratio 0.999 (was 0.967), worst node 0.15 mm (was 0.42), 46/47 support loads within 5% (was 43). **BM4** expansion straight pipe 39/98 within 1%, 77/98 within 5% of CASE 21, median 2.0%, CAESAR/LFEA 0.998 (was 4/98 within 5%, 13.5% low); OPE vs CASE 20 displacement ratio 0.9994 (was 0.893), 25/30 supports within 5% (was 18), 29/30 counting lift-offs (was 22), all five gap closures where CAESAR has them (20030 DZ, 20390 DX, 21480 DX and DZ, 21640 DX). **BM1** (probe, not in CI) expansion displacement ratio 0.968 (was 0.937); the rest is CAESAR's friction at nodes 70 and 80. | Source facts, "Thermal basis": "N heated element(s) on the LFEA default (…): carbon-steel strain back-calculated from CAESAR output at 82, 120, 325 C, from 21 C, at T1 … C (… extrapolated); NOT ENGINEER-REVIEWED". |
 | Support friction (CAESAR `FRIC_COEF`) | **Not applied yet** (`GENERIC_APPROX_FRICTION_IGNORED`): supports slide freely. The record counts the friction coefficients not applied. | Same line: "N support friction coefficient(s) not applied: those supports slide freely." |
 
 Every assumed value stays in the sealed records (authority IDs, source IDs,
@@ -106,21 +106,19 @@ pair, and CASE 21 (EXP) = L20 − L19.
 
 InputXML bends as real arcs (2026-11-27), same check:
 
-| BM4 (30 supports) | Bends as chords | Real bend arcs | Real arcs, CAESAR-like α (probe) |
+| BM4 (30 supports) | Bends as chords | Real bend arcs | Real arcs, back-calculated CAESAR strain (2026-11-28) |
 |---|---|---|---|
 | SUS vs CASE 19 within 5% / or lifted off | 24 / 26 | **28 / 30** | 28 / 30 |
-| OPE vs CASE 20 within 5% / or lifted off | 21 / 25 | 18 / 22 | **25** within 5% |
+| OPE vs CASE 20 within 5% / or lifted off | 21 / 25 | 18 / 22 | **25 / 29** |
 | Total displacement ratio SUS (CASE 19) | 0.6823 | **1.0171** | 1.0171 |
-| Total displacement ratio OPE | 0.8960 | 0.8930 | **0.9935** |
+| Total displacement ratio OPE | 0.8960 | 0.8930 | **0.9994** |
 | Total vertical reaction vs CAESAR | 1.19% | **0.19%** | 0.19% |
-| OPE gaps closed | 3 | 4: 20030 DZ now closes at −25 mm, as in CAESAR | 4 |
+| OPE gaps closed | 3 | 4: 20030 DZ now closes at −25 mm, as in CAESAR | 5: 21480 DZ too, as in CAESAR |
 
-OPE support loads drop with real arcs because the app's default thermal strain
-was about 12% below CAESAR's at BM4's 325 °C (1.17e-5 /K from 20 °C; since
-2026-11-28 CAESAR's BM4_L mean, 1.2232e-5 /K from 21 °C, about 9% below). With a
-CAESAR-like 1.3289e-5 /K from 21 °C (a probe only, not shipped) the same model
-reaches 25/30 and a displacement ratio of 0.99. The OPE marks rise once the
-thermal default comes from the CAESAR material database.
+OPE support loads dropped with real arcs because the app's default thermal
+strain was about 12% below CAESAR's at BM4's 325 °C (1.17e-5 /K from 20 °C).
+Since 2026-11-28 the default is the strain back-calculated from this output
+(see the thermal row at the top), and OPE is in the last column.
 
 B31 on the app's own path (`scripts/lfea-b31-inputxml-caesar-comparison.mjs`:
 BM4 InputXML, app defaults, default cases):
@@ -129,9 +127,10 @@ BM4 InputXML, app defaults, default cases):
 |---|---|---|---|---|
 | SUS straight pipe vs CASE 19 | 111 | 100 | 106 | 0.08% |
 | SUS, all compared ends | 126 | 114 | 121 | 0.10% |
-| EXP straight pipe vs CASE 21, app thermal default (BM4_L mean since 2026-11-28) | 98 | 0 | 7 | 9.8% low (CAESAR/LFEA 1.102; was 1.147) |
-| EXP straight pipe, scaled to a CAESAR-like strain (×1.086) | 98 | 21 | 60 | 3.71% |
-| EXP straight pipe, chords (before), same scaling | 98 | 8 | 31 | 11.3% |
+| EXP straight pipe vs CASE 21, back-calculated CAESAR strain (since 2026-11-28) | 98 | 39 | 77 | 2.0% (CAESAR/LFEA 0.998) |
+| EXP, all compared ends | 113 | 39 | 84 | 2.4% (CAESAR/LFEA 1.000) |
+| EXP straight pipe, generic 1.17e-5 /K from 20 °C (before) | 98 | 2 | 4 | 13.5% low (CAESAR/LFEA 1.147) |
+| EXP straight pipe, chords (earlier), scaled to a CAESAR-like strain | 98 | 8 | 31 | 11.3% |
 
 Before 2026-11-27 the BM4 InputXML expansion check was compared with BM4_L's
 CASE 14 by mistake. BM4_L runs at 120 °C and BM4 at 325 °C, so that gave
@@ -318,8 +317,8 @@ L14 = L5 − L6, at 128 W+P ends, 109 of them with CAESAR at 1 MPa or more.
 - This comparison prepares BM4_L as the parity harness does: CAESAR's
   reconstructed thermal strain (0.00121097 for 21 → 120 °C) and B31J bends
   with the smooth-90° correction. **The app's own defaults now give the same
-  figures**: since 2026-11-28 the thermal default is that same CAESAR strain
-  (see the table at the top). Before that, with α 1.17e-5 from 20 °C,
+  figures**: since 2026-11-28 the thermal default gives that same CAESAR
+  strain at 120 °C (see the table at the top). Before that, with α 1.17e-5 from 20 °C,
   straight-pipe expansion stress was a median 3.4% below CAESAR and 63 of 77
   ends were within 5%; before smooth-90° was the default, 7.5% and 24 of 77.
   The L2/L6/L5 parity figures above also use the CAESAR-matched preparation.
@@ -329,9 +328,10 @@ Known B31 limits, all stated in the status line:
 - Each check set covers one material, the one with the most elements.
 - Expansion at weldolet run ends uses the Table D300 SIF and is about 37% low
   against CAESAR (see above).
-- The app's default thermal strain is CAESAR's BM4_L value, exact at 120 °C;
-  lines hotter than that run low (BM4 at 325 °C about 9%), and materials other
-  than A106 B and A334 Gr 6 keep the generic 1.17e-5 /K (see above).
+- The app's default thermal strain is back-calculated from CAESAR output at
+  82, 120 and 325 °C and exact there; between those points it is interpolated
+  and outside them extrapolated, and materials other than A106 B and
+  A334 Gr 6 keep the generic 1.17e-5 /K (see above).
 - Bends are not checked yet; bend-arc elements stay outside the native
   boundary. Straight pipe, reducer and tee elements are checked.
 - Weldolet run ends use the Table D300 default above, not B31J, and weldolet

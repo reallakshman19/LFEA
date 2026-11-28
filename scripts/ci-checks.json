@@ -123,6 +123,7 @@
     "scripts/lfea-hanger-predefined-check.mjs",
     "scripts/lfea-inputxml-ingest-check.mjs",
     "scripts/lfea-inputxml-thermal-interval-authority-check.mjs",
+    "scripts/lfea-caesar-thermal-strain-backcalc-check.mjs",
     "scripts/lfea-inputxml-topology-graph-check.mjs",
     "scripts/lfea-inputxml-topology-proximity-check.mjs",
     "scripts/lfea-linear-solver-neutral-dependency-check.mjs",

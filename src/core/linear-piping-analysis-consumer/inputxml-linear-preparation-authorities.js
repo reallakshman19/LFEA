@@ -63,7 +63,7 @@ export function prepareInputXmlElementAuthorities({
     // A model-interval authority wins; then a declared default for this
     // material; then the generic project authority.
     const thermalInput = (thermalIntervalAuthority === null
-      ? resolveInputXmlDefaultThermalInput(thermalDefaultBasis, segment.meta?.materialNumber)
+      ? resolveInputXmlDefaultThermalInput(thermalDefaultBasis, segment.meta?.materialNumber, operatingTemperature)
       : null) ?? resolveInputXmlThermalInputAuthority({
       intervalAuthority: thermalIntervalAuthority,
       modelId,
