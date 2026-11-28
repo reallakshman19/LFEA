@@ -37,7 +37,7 @@ export function mountLfeaNativeB31AuthoringView(root, { onStage, onAuthorize, on
     advanced.append(summary);
     section.append(advanced);
     advanced.append(paragraph(doc,
-      'Select real straight-pipe element/end/case combinations from the current model, supply a caller-authorized ASME B31.3 code profile and edition dataset, then stage, review, and publish the code check.'));
+      'Select real element/end/case combinations (straight pipe, reducers, tees and bends) from the current model, supply a caller-authorized ASME B31.3 code profile and edition dataset, then stage, review, and publish the code check.'));
     advanced.append(codeAuthorityInputs(doc));
     advanced.append(candidateTable(doc, preFlight));
     advanced.append(stageButton(doc, preFlight));
@@ -50,7 +50,7 @@ export function mountLfeaNativeB31AuthoringView(root, { onStage, onAuthorize, on
     wrap.className = 'lfea-b31-quick-run';
     wrap.dataset.role = 'lfea-b31-quick-run';
     wrap.append(paragraph(document_,
-      'Enter the allowable stresses for the pipe material and run. Every straight-pipe, reducer and tee element end is checked for sustained stress (W = 1) in the weight cases, '
+      'Enter the allowable stresses for the pipe material and run. Every straight-pipe, reducer and tee element end, and every bend end, is checked for sustained stress (W = 1) in the weight cases, '
       + 'and for expansion stress range (operating minus sustained) when the run has both. Fittings and bends use B31J factors (weldolet runs: CAESAR-fitted LFEA default); plain pipe uses unity factors. '
       + 'LFEA does not supply ASME allowables (they are licensed), and CAESAR models usually leave them unset. Results are labelled "allowables entered by user" and NOT ENGINEER-REVIEWED. '
       + 'After each Run the check repeats with the same values.'));
@@ -105,7 +105,7 @@ export function mountLfeaNativeB31AuthoringView(root, { onStage, onAuthorize, on
     const candidates = listB31SustainedCandidates(preFlight);
     wrap.append(heading(document_, 'Real SUSTAINED candidates', 'h3'));
     if (candidates.length === 0) {
-      wrap.append(paragraph(document_, 'No eligible straight-pipe element/end/SUSTAINED-case combination is available yet.'));
+      wrap.append(paragraph(document_, 'No eligible element/end/SUSTAINED-case combination is available yet.'));
       return wrap;
     }
     const table = document_.createElement('table');
