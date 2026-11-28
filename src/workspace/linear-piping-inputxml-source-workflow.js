@@ -14,6 +14,7 @@ import {
 } from './linear-piping-inputxml-prefea.js';
 import { renderLinearPipingInputXmlDiagnostics } from './linear-piping-inputxml-diagnostics-view.js';
 import { LFEA_DEFAULT_CASE_SELECTION_SOURCE, lfeaDefaultRequestedCaseIds } from './lfea-default-case-selection.js';
+import { lfeaThermalBasisLabel } from './lfea-thermal-default.js';
 import { prepareLfeaPreFlightWithHangerDesign } from './lfea-hanger-design.js';
 import {
   createLfeaAccdbIntake,
@@ -600,6 +601,8 @@ function renderSourceSummary(doc, root, controller) {
     rows.push(['Nodes', String(controller.preFlight.sourceSummary.nodeCount)]);
     rows.push(['Elements', String(controller.preFlight.sourceSummary.elementCount)]);
     rows.push(['Available cases', controller.preFlight.sourceSummary.availableCaseIds.join(', ') || 'None']);
+    const thermalBasis = lfeaThermalBasisLabel(controller.preFlight);
+    if (thermalBasis) rows.push(['Thermal basis', thermalBasis]);
     rows.push(['Pre-FEA authorization', controller.preFlight.solveAuthorized
       ? controller.preFlight.authorization.semanticHash
       : 'NOT AUTHORIZED']);

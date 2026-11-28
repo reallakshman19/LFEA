@@ -2,7 +2,7 @@
 /**
  * ACCDB import on the Source tab: BM4_L.ACCDB through the same Source workflow
  * controller the app mounts, on app defaults (assumed B31J basis with
- * smooth-90, default thermal strain, default cases), then Run and the
+ * smooth-90, CAESAR's BM4_L thermal strain, default cases), then Run and the
  * practical B31 check, compared with CAESAR's own output in the same file.
  */
 import assert from 'node:assert/strict';
@@ -14,6 +14,7 @@ import { runLfeaPracticalB31Check } from '../src/lfea/practical-b31-check.js';
 import { lfeaB31EndFittings } from '../src/lfea/practical-b31-fittings.js';
 import { isLfeaAccdbFileName } from '../src/workspace/lfea-accdb-source.js';
 import { authorizeLinearPipingInputXmlPreFlight } from '../src/workspace/linear-piping-inputxml-prefea.js';
+import { lfeaThermalBasisLabel } from '../src/workspace/lfea-thermal-default.js';
 import { LinearPipingInputXmlSourceWorkflowController } from '../src/workspace/linear-piping-inputxml-source-workflow.js';
 
 const ACCDB = 'benchmarks/LFEA/BM4/BM4_L/BM4_L.ACCDB';
@@ -99,8 +100,67 @@ const summary = {
 };
 console.log(JSON.stringify(summary));
 
-// Measured 2026-11-27. Expansion is low by the default thermal strain
-// (1.17e-5 /K from 20 C vs CAESAR's 21 -> 120 C value): about 3.4% on BM4_L.
+// Measured 2026-11-28. The app's thermal default is CAESAR's own BM4_L strain
+// (lfea-thermal-default.js), so expansion matches as the parity harness does:
+// before it, 63/77 straight ends within 5% and a median 3.38% low.
 assert.ok(summary.sustained.all.within1Pct >= 122 && summary.sustained.all.within5Pct === 128, 'sustained vs CAESAR CASE 6');
-assert.ok(summary.expansion.straightPipe.within5Pct >= 63 && summary.expansion.straightPipe.medianPct <= 3.4, 'expansion straight pipe vs CASE 14');
+assert.ok(summary.expansion.straightPipe.within1Pct >= 45 && summary.expansion.straightPipe.within5Pct >= 67
+  && summary.expansion.straightPipe.medianPct <= 0.35, 'expansion straight pipe vs CASE 14');
+assert.ok(summary.expansion.all.within5Pct >= 86 && summary.expansion.all.medianPct <= 1.1, 'expansion, all compared ends vs CASE 14');
+
+// Operating case IXP-WPT against CAESAR CASE 5 (OPE) W+T1+P1, friction-free:
+// node translations (mm) and support loads (CAESAR's are on the hardware, so
+// negated). Measured 2026-11-28; on the generic 1.17e-5 /K from 20 C it was a
+// displacement ratio of 0.967, worst node 0.42 mm, 43/47 loads within 5%.
+assert.match(lfeaThermalBasisLabel(preFlight), /^96 heated element\(s\) on the LFEA default/u, 'thermal basis label');
+const reader = new MDBReader(bytes);
+const opeRows = (name) => reader.getTable(name).getData().filter((row) => Number(row.LCASE_NUM) === 5);
+const byNode = (rows) => {
+  const map = new Map();
+  for (const row of rows) {
+    const node = String(row.nodeId).replace(/^.*\.N/u, '');
+    map.set(node, { ...(map.get(node) ?? {}), [row.dof]: row.value });
+  }
+  return map;
+};
+const operating = executionState.execution.caseExecutions.find((row) => row.caseId === 'IXP-WPT').execution;
+const ourDisp = byNode(operating.displacement);
+let ourSum = 0;
+let caesarSum = 0;
+let worstMm = 0;
+for (const row of opeRows('OUTPUT_DISPLACEMENTS')) {
+  const ours = ourDisp.get(String(row.NODE));
+  if (!ours) continue;
+  let squared = 0;
+  for (const [dof, value] of [['UX', row.DX], ['UY', row.DY], ['UZ', row.DZ]]) {
+    const mm = (ours[dof] ?? 0) * 1000;
+    ourSum += Math.abs(mm);
+    caesarSum += Math.abs(value);
+    squared += (mm - value) ** 2;
+  }
+  worstMm = Math.max(worstMm, Math.sqrt(squared));
+}
+const caesarLoads = new Map();
+for (const row of opeRows('OUTPUT_RESTRAINTS')) {
+  const load = caesarLoads.get(String(row.NODE)) ?? { UX: 0, UY: 0, UZ: 0 };
+  caesarLoads.set(String(row.NODE), { UX: load.UX - row.FX, UY: load.UY - row.FY, UZ: load.UZ - row.FZ });
+}
+const ourLoads = byNode(operating.reactions);
+const loadErrors = [];
+for (const [node, load] of caesarLoads) {
+  for (const dof of ['UX', 'UY', 'UZ']) {
+    if (Math.abs(load[dof]) > 50 && ourLoads.has(node)) loadErrors.push(Math.abs((ourLoads.get(node)[dof] ?? 0) / load[dof] - 1));
+  }
+}
+loadErrors.sort((a, b) => a - b);
+const ope = {
+  displacementRatio: +(ourSum / caesarSum).toFixed(4),
+  worstNodeMm: +worstMm.toFixed(2),
+  loads: loadErrors.length,
+  loadsWithin5Pct: loadErrors.filter((error) => error <= 0.05).length,
+  loadMedianPct: +(100 * loadErrors[loadErrors.length >> 1]).toFixed(2),
+};
+console.log(JSON.stringify({ operatingVsCase5: ope }));
+assert.ok(Math.abs(ope.displacementRatio - 1) <= 0.005 && ope.worstNodeMm <= 0.2, 'operating displacements vs CASE 5');
+assert.ok(ope.loads >= 47 && ope.loadsWithin5Pct >= 46 && ope.loadMedianPct <= 0.3, 'operating support loads vs CASE 5');
 console.log('LFEA ACCDB Source import PASS');

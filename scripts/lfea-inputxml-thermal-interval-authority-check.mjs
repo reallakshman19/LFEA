@@ -1,4 +1,10 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import {
+  INPUTXML_THERMAL_DEFAULT_BASIS,
+  resolveInputXmlDefaultThermalInput,
+} from '../src/core/linear-piping-analysis-consumer/inputxml-thermal-default.js';
+import { LFEA_THERMAL_DEFAULT_BASIS } from '../src/workspace/lfea-thermal-default.js';
 import {
   INPUTXML_THERMAL_INTERVAL_AUTHORITY_SCHEMA,
   requireInputXmlThermalIntervalAuthority,
@@ -87,6 +93,26 @@ const tampered = {
 expectCode(
   () => requireInputXmlThermalIntervalAuthority(tampered),
   'INPUTXML_THERMAL_INTERVAL_AUTHORITY_HASH_INVALID',
+);
+
+// The app's declared default (CAESAR's BM4_L strain) stands where no interval
+// authority is given; it gives exactly the interval record's strain at 120 C,
+// keeps unnamed materials on the generic authority, and refuses a bad basis.
+const record = JSON.parse(readFileSync('benchmarks/LFEA/CAESAR_ACCDB/m047-bm4l-t1-interval-authority.json', 'utf8'));
+assert.equal(LFEA_THERMAL_DEFAULT_BASIS.coefficientsByMaterial[106], record.interval.epsilonT1 / record.interval.temperatureDifferenceK);
+assert.equal(LFEA_THERMAL_DEFAULT_BASIS.installationTemperature, record.interval.installationTemperatureC + 273.15);
+const defaulted = resolveInputXmlDefaultThermalInput(LFEA_THERMAL_DEFAULT_BASIS, 106);
+assert.equal(defaulted.basis, INPUTXML_THERMAL_DEFAULT_BASIS);
+assert.equal(defaulted.thermalAuthority.status, 'RESOLVED');
+assert.equal(defaulted.thermalAuthority.materialLabel, 'A106 Grade B');
+assert.ok(Math.abs(defaulted.thermalAuthority.coefficientPerKelvin * (OPERATING_TEMPERATURE - defaulted.installationTemperature)
+  - intervalAuthority.thermalStrain) < 1e-15, 'default strain equals the CAESAR interval strain at 120 C');
+assert.equal(resolveInputXmlDefaultThermalInput(LFEA_THERMAL_DEFAULT_BASIS, 360).thermalAuthority.materialLabel, 'A334 Grade 6');
+assert.equal(resolveInputXmlDefaultThermalInput(LFEA_THERMAL_DEFAULT_BASIS, 999), null, 'unnamed material keeps the generic authority');
+assert.equal(resolveInputXmlDefaultThermalInput(null, 106), null, 'no basis, no default');
+expectCode(
+  () => resolveInputXmlDefaultThermalInput({ ...LFEA_THERMAL_DEFAULT_BASIS, installationTemperature: Number.NaN }, 106),
+  'INPUTXML_THERMAL_DEFAULT_BASIS_INVALID',
 );
 
 console.log(JSON.stringify({

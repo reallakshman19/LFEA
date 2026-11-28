@@ -18,6 +18,7 @@ import {
   lfeaBranchFactorAuthorityForIntake,
 } from './lfea-bend-factor-authority-control.js';
 import { lfeaProximityOptionsForSourceUnit } from './lfea-geometry-allowance.js';
+import { LFEA_THERMAL_DEFAULT_BASIS } from './lfea-thermal-default.js';
 import { requireLinearPipingInputXmlIntake } from './linear-piping-inputxml-intake.js';
 
 export const LINEAR_PIPING_INPUTXML_PREFLIGHT_SCHEMA = 'linear-piping-inputxml-native-preflight/v1';
@@ -67,10 +68,19 @@ export function prepareLinearPipingInputXmlPreFlight(value, options) {
     ? lfeaBranchFactorAuthorityForIntake(intake)
     : options.branchFactorAuthority;
   const preparationOptions = options.preparationOptions ?? {};
+  const authorityOptions = preparationOptions.authorityOptions ?? {};
   const preparation = prepareInputXmlLinearPreFea(
     diagnostics,
     {
       ...preparationOptions,
+      // The LFEA thermal default (lfea-thermal-default.js) unless the caller
+      // passes its own basis, or null for the generic material authority.
+      authorityOptions: {
+        ...authorityOptions,
+        thermalDefaultBasis: authorityOptions.thermalDefaultBasis === undefined
+          ? LFEA_THERMAL_DEFAULT_BASIS
+          : authorityOptions.thermalDefaultBasis,
+      },
       stiffnessOptions: {
         ...(preparationOptions.stiffnessOptions ?? {}),
         bendFactorAuthority,
